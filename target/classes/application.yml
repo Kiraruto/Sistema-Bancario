@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: Sistema-bancario
+  datasource:
+    url: jdbc:postgresql://localhost:5555/Banking_systemDB
+    username: postgres
+    password: Kira22@#
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    show-sql: false
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate.format_sql: true
+
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
