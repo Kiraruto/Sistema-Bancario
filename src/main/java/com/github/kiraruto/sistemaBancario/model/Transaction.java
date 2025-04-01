@@ -66,7 +66,6 @@ public class Transaction {
         this.status = withdrawRequestDTO.amount().compareTo(BigDecimal.valueOf(20000)) > 0
                 ? EnumStatus.PENDENTE
                 : EnumStatus.CONCLUIDA;
-        this.description = "Deposito Conta Pounpança";
     }
 
     public Transaction(SavingsAccount sourceAccount, SavingsAccount targetAccount, ScheduledTransfer transfer) {
@@ -87,6 +86,5 @@ public class Transaction {
         this.status = withdrawalRequestDTO.amount().compareTo(BigDecimal.valueOf(20000)) > 0
                 ? EnumStatus.PENDENTE
                 : EnumStatus.CONCLUIDA;
-        this.description = "Saque Conta Pounpança";
     }
 }

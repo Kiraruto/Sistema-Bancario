@@ -1,24 +1,19 @@
 package com.github.kiraruto.sistemaBancario.service;
 
-import com.github.kiraruto.sistemaBancario.dto.BalanceDTO;
-import com.github.kiraruto.sistemaBancario.dto.CheckingAccountDTO;
-import com.github.kiraruto.sistemaBancario.dto.DepositRequestDTO;
-import com.github.kiraruto.sistemaBancario.dto.TransactionDTO;
+import com.github.kiraruto.sistemaBancario.dto.*;
 import com.github.kiraruto.sistemaBancario.model.CheckingAccount;
 import com.github.kiraruto.sistemaBancario.model.Transaction;
 import com.github.kiraruto.sistemaBancario.model.User;
-import com.github.kiraruto.sistemaBancario.model.enums.EnumTransactionType;
 import com.github.kiraruto.sistemaBancario.repository.CheckingAccountRepository;
 import com.github.kiraruto.sistemaBancario.repository.TransactionRepository;
 import com.github.kiraruto.sistemaBancario.repository.UserRepository;
 import com.github.kiraruto.sistemaBancario.utils.CheckingAccountValidate;
 import com.github.kiraruto.sistemaBancario.utils.interfaces.TransactionValidate;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -55,30 +50,6 @@ public class CheckingAccountService {
         return checkingAccount;
     }
 
-    public void depositCheckingAccount(DepositRequestDTO depositRequestDTO) {
-        checkingAccountValidate.validateDepositChecking(depositRequestDTO);
-
-        CheckingAccount ch = checkingAccountRepository.findByCpfAndEmail(depositRequestDTO.cpf(), depositRequestDTO.email())
-                .orElseThrow(() -> new IllegalArgumentException("Não existe conta com este Cpf e este Email"));
-
-        BigDecimal newBalance = depositRequestDTO.balance().add(ch.getBalance());
-
-        Transaction transaction = new Transaction();
-        transaction.setAccountSends(ch.getId());
-        transaction.setAccountSends(ch.getId());
-        transaction.setTransactionType(EnumTransactionType.DEPOSITO);
-        transaction.setAmount(depositRequestDTO.balance());
-        transaction.setTransactionDate(LocalDateTime.now().atZone(ZoneId.of("America/Sao_Paulo")).toLocalDateTime());
-        transaction.setStatus(transactionValidate.deposit(depositRequestDTO));
-        transaction.setOrigin(depositRequestDTO.origin());
-        transaction.setDescription(depositRequestDTO.description());
-
-        transactionRespository.save(transaction);
-
-        ch.setBalance(newBalance);
-        checkingAccountRepository.save(ch);
-    }
-
     public CheckingAccount getById(UUID id) {
         return checkingAccountRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("O id da transação não foi encontrado"));
@@ -104,5 +75,80 @@ public class CheckingAccountService {
         }
 
         return fullNameAndBalanceById;
+    }
+
+    public void withdraw(UUID uuid, @Valid WithdrawRequestDTO withdrawRequestDTO) {
+        CheckingAccount validateCheckingAccount = checkingAccountValidate.validateCheckingAccountWithdraw(withdrawRequestDTO);
+
+        CheckingAccount checkingAccount = checkingAccountRepository.findById(uuid)
+                .orElseThrow(() -> new IllegalArgumentException("A conta com este id não existe"));
+
+        Transaction transaction = new Transaction(withdrawRequestDTO, transactionValidate);
+        transactionRespository.save(transaction);
+
+        var balance = validateCheckingAccount.getBalance().add(withdrawRequestDTO.amount());
+
+        checkingAccount.setBalance(balance);
+        checkingAccountRepository.save(checkingAccount);
+    }
+
+    public void transferCheckingAccount(@Valid DepositRequestDTO depositRequestDTO) {
+        checkingAccountValidate.validateDepositChecking(depositRequestDTO);
+
+        Optional<CheckingAccount> chOpt1 = checkingAccountRepository.findById(depositRequestDTO.accountSends());
+        if (chOpt1.isEmpty()) {
+            throw new RuntimeException("Conta com este id não existe");
+        }
+
+        Optional<CheckingAccount> chOpt2 = checkingAccountRepository.findById(depositRequestDTO.accountReceive());
+        if (chOpt2.isEmpty()) {
+            throw new RuntimeException("Conta com este id não existe");
+        }
+
+        CheckingAccount ch1 = chOpt1.get();
+        CheckingAccount ch2 = chOpt2.get();
+
+        BigDecimal newBalance1 = ch1.getBalance().subtract(depositRequestDTO.balance());
+        BigDecimal newBalance2 = ch2.getBalance().add(depositRequestDTO.balance());
+
+        ch1.setBalance(newBalance1);
+        ch2.setBalance(newBalance2);
+
+        checkingAccountRepository.save(ch1);
+        checkingAccountRepository.save(ch2);
+
+        Transaction transaction = new Transaction(depositRequestDTO, transactionValidate);
+        transaction.setDescription("Deposito Conta Corrente");
+        transactionRespository.save(transaction);
+    }
+
+    public void disableCheckingAccount(UUID uuid) {
+        CheckingAccount checkingAccount = checkingAccountValidate.validateCheckingAccountToFalse(uuid);
+
+        checkingAccount.setIsActive(false);
+        checkingAccountRepository.save(checkingAccount);
+    }
+
+    public void activateCheckingAccount(UUID uuid) {
+        CheckingAccount checkingAccount = checkingAccountValidate.validateCheckingAccountToTrue(uuid);
+
+        checkingAccount.setIsActive(true);
+        checkingAccountRepository.save(checkingAccount);
+    }
+
+    public void withdrawal(UUID uuid, @Valid WithdrawalRequestDTO withdrawalRequestDTO) {
+        CheckingAccount validateCheckingAccount = checkingAccountValidate.validateCheckingAccountWithdrawal(withdrawalRequestDTO);
+
+        CheckingAccount checkingAccount = checkingAccountRepository.findById(uuid)
+                .orElseThrow(() -> new IllegalArgumentException("A conta com este id não existe"));
+
+        Transaction transaction = new Transaction(withdrawalRequestDTO);
+        transaction.setDescription("Saque Conta Pounpança");
+        transactionRespository.save(transaction);
+
+
+        var balance = validateCheckingAccount.getBalance().subtract(withdrawalRequestDTO.amount());
+        checkingAccount.setBalance(balance);
+        checkingAccountRepository.save(checkingAccount);
     }
 }
