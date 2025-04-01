@@ -1,11 +1,10 @@
 package com.github.kiraruto.sistemaBancario.controller;
 
-import com.github.kiraruto.sistemaBancario.dto.BalanceDTO;
-import com.github.kiraruto.sistemaBancario.dto.CheckingAccountDTO;
-import com.github.kiraruto.sistemaBancario.dto.DepositRequestDTO;
-import com.github.kiraruto.sistemaBancario.dto.TransactionDTO;
+import com.github.kiraruto.sistemaBancario.dto.*;
 import com.github.kiraruto.sistemaBancario.model.CheckingAccount;
 import com.github.kiraruto.sistemaBancario.service.CheckingAccountService;
+import jakarta.transaction.Transactional;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -46,15 +45,40 @@ public class CheckingAccountController {
         return ResponseEntity.ok(balance);
     }
 
-    @PostMapping
-    public ResponseEntity<CheckingAccount> createAccountCh(@RequestBody CheckingAccountDTO checkingAccountDTO) {
+    @PostMapping("/create")
+    @Transactional
+    public ResponseEntity<CheckingAccount> createAccountCh(@RequestBody @Valid CheckingAccountDTO checkingAccountDTO) {
         CheckingAccount ch = checkingAccountService.createAccount(checkingAccountDTO);
         return ResponseEntity.status(HttpStatus.CREATED).body(ch);
     }
 
-    @PutMapping
-    public ResponseEntity<CheckingAccount> DepositRequest(@RequestBody DepositRequestDTO depositRequestDTO) {
-        checkingAccountService.depositCheckingAccount(depositRequestDTO);
+    @PutMapping("/{id}/withdraw")
+    public ResponseEntity<Void> withdraw(@PathVariable String id, @RequestBody @Valid WithdrawRequestDTO withdrawRequestDTO) {
+        checkingAccountService.withdraw(validateUUID(id), withdrawRequestDTO);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{id}/withdrawal")
+    public ResponseEntity<Void> withdrawal(@PathVariable String id, @RequestBody @Valid WithdrawalRequestDTO withdrawalRequestDTO) {
+        checkingAccountService.withdrawal(validateUUID(id), withdrawalRequestDTO);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/transfer/checkingAccount")
+    public ResponseEntity<CheckingAccount> transferRequest(@RequestBody @Valid DepositRequestDTO depositRequestDTO) {
+        checkingAccountService.transferCheckingAccount(depositRequestDTO);
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+    }
+
+    @PutMapping("/{id}/disableCheckingAccount")
+    public ResponseEntity<Void> disableCheckingAccount(@PathVariable("id") String id) {
+        checkingAccountService.disableCheckingAccount(validateUUID(id));
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{id}/activateCheckingAccount")
+    public ResponseEntity<Void> activateCheckingAccount(@PathVariable("id") String id) {
+        checkingAccountService.activateCheckingAccount(validateUUID(id));
+        return ResponseEntity.noContent().build();
     }
 }

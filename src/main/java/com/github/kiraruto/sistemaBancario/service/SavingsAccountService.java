@@ -87,6 +87,7 @@ public class SavingsAccountService {
         savingsAccountRepository.save(sa2);
 
         Transaction transaction = new Transaction(depositRequestDTO, transactionValidate);
+        transaction.setDescription("Deposito Conta Pounpança");
         transactionRespository.save(transaction);
     }
 
@@ -149,6 +150,7 @@ public class SavingsAccountService {
                 .orElseThrow(() -> new IllegalArgumentException("A conta com este id não existe"));
 
         Transaction transaction = new Transaction(withdrawalRequestDTO);
+        transaction.setDescription("Saque Conta Pounpança");
         transactionRespository.save(transaction);
 
 

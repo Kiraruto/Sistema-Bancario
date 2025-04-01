@@ -21,4 +21,6 @@ public interface CheckingAccountRepository extends JpaRepository<CheckingAccount
     Optional<CheckingAccount> findByCpfAndEmail(String cpf, String email);
 
     BalanceDTO findFullNameAndBalanceById(UUID id);
+
+    boolean existsByFullNameAndEmailAndCpf(String fullName, String email, String cpf);
 }
