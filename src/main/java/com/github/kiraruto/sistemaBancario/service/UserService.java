@@ -6,6 +6,10 @@ import com.github.kiraruto.sistemaBancario.model.enums.EnumUserRole;
 import com.github.kiraruto.sistemaBancario.repository.UserRepository;
 import com.github.kiraruto.sistemaBancario.utils.UserValidate;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -17,6 +21,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final UserValidate userValidate;
+    private final PasswordEncoder passwordEncoder;;
 
     public List<User> getAllUser() {
         return userRepository.findAllByIsActiveTrue();
@@ -25,7 +30,7 @@ public class UserService {
     public User createUserAccount(UserDTO userDTO) {
         userValidate.validateCreateAccountUser(userDTO);
 
-        User user = new User(userDTO);
+        User user = new User(userDTO, passwordEncoder.encode(userDTO.password()));
         userRepository.save(user);
 
         System.out.println("Usuário salvo com ID: " + user.getId());
@@ -99,4 +104,13 @@ public class UserService {
         userRepository.save(user);
     }
 
+    public UserDetailsService userDetailsService() {
+        return new UserDetailsService() {
+            @Override
+            public UserDetails loadUserByUsername(String username){
+                return userRepository.findByEmail(username)
+                        .orElseThrow(() -> new UsernameNotFoundException("Usuario não encontradi"));
+            }
+        };
+    }
 }

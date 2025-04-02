@@ -8,6 +8,7 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -38,8 +39,6 @@ public class CheckingAccount extends Account {
     @JsonIgnore
     private User user;
 
-
-    //    Checar conta
     public CheckingAccount(String fullName, LocalDate dateBirth, String address, EnumMaritalStatus maritalStatus,
                            String phoneNumber, String email, String cpf, EnumTypeDocument rgOrCnh,
                            String documentNumber, BigDecimal balance, Boolean hasOverdraft, Boolean requiresIncomeProof, Boolean isActive) {
@@ -56,21 +55,12 @@ public class CheckingAccount extends Account {
         this.setMaritalStatus(checkingAccountDTO.maritalStatus());
         this.setPhoneNumber(checkingAccountDTO.phoneNumber());
         this.setEmail(checkingAccountDTO.email());
-        this.setCpf(checkingAccountDTO.cpf());
+        this.setCpf(new BCryptPasswordEncoder().encode(checkingAccountDTO.cpf()));
         this.setRgOrCnh(checkingAccountDTO.rgOrCnh());
-        this.setDocumentNumber(checkingAccountDTO.documentNumber());
+        this.setDocumentNumber(new BCryptPasswordEncoder().encode(checkingAccountDTO.documentNumber()));
         this.setIsActive(true);
         this.balance = checkingAccountDTO.balance();
         this.hasOverdraft = checkingAccountDTO.hasOverdraft();
         this.requiresIncomeProof = checkingAccountDTO.requiresIncomeProof();
-    }
-
-    //    Analisar Crédito
-    public void analyzeCredit() {
-        if (requiresIncomeProof) {
-            System.out.println("Realizando análise de crédito para cheque especial...");
-        } else {
-            System.out.println("Não é necessário análise de crédito.");
-        }
     }
 }

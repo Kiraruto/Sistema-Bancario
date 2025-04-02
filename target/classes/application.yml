@@ -18,3 +18,7 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+
+jwt:
+  secret: "zT4KPmW8cA2yF5N9rX3bL7qV1sT0dG6m"
