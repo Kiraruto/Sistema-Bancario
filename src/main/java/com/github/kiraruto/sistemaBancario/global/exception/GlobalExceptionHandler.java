@@ -8,6 +8,7 @@ import jakarta.validation.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -78,9 +79,12 @@ public class GlobalExceptionHandler {
         return ErroResponse.conflict(e.getMessage());
     }
 
-    @ExceptionHandler(AuthenticationException.class)
+    @ExceptionHandler({
+            AuthenticationException.class,
+            UsernameNotFoundException.class
+    })
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
-    public ErroResponse handleAuthenticationException(AuthenticationException e) {
+    public ErroResponse handleAuthenticationException(RuntimeException e) {
         return ErroResponse.unauthorized(e.getMessage());
     }
 

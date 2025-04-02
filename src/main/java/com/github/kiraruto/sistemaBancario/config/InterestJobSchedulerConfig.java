@@ -1,4 +1,4 @@
-package com.github.kiraruto.sistemaBancario.global.config;
+package com.github.kiraruto.sistemaBancario.config;
 
 import com.github.kiraruto.sistemaBancario.service.ScheduledTransferService;
 import lombok.RequiredArgsConstructor;
