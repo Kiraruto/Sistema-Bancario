@@ -8,7 +8,6 @@ import com.github.kiraruto.sistemaBancario.repository.SavingsAccountRepository;
 import com.github.kiraruto.sistemaBancario.repository.TransactionRepository;
 import com.github.kiraruto.sistemaBancario.repository.TransactionScheduleRepository;
 import com.github.kiraruto.sistemaBancario.repository.UserRepository;
-import com.github.kiraruto.sistemaBancario.service.interfaces.TransactionService;
 import com.github.kiraruto.sistemaBancario.utils.SavingsAccountValidate;
 import com.github.kiraruto.sistemaBancario.utils.interfaces.TransactionValidate;
 import jakarta.validation.Valid;

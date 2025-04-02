@@ -1,7 +1,7 @@
 package com.github.kiraruto.sistemaBancario.config;
 
 import com.github.kiraruto.sistemaBancario.model.enums.EnumUserRole;
-import com.github.kiraruto.sistemaBancario.service.UserService;
+import com.github.kiraruto.sistemaBancario.service.CustomUserDetailsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -23,16 +23,11 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @RequiredArgsConstructor
 public class SecurityConfiguration {
 
-    private final JWTAuthenticationFilter jwtAuthenticationFilter;
-
-    private final UserService userService;
-
     private static final String[] PUBLIC_PATHS = {
             "/auth/**",
             "/swagger-ui/**",
             "/v3/api-docs/**",
     };
-
     private static final String[] ADMIN_PATHS = {
             "/users",
             "/users/**",
@@ -42,7 +37,6 @@ public class SecurityConfiguration {
             "/users/{id}/disableUser",
             "/users/{id}/activateUser"
     };
-
     private static final String[] GERENTE_PATHS = {
             "/savings-accounts",
             "/savings-accounts/**",
@@ -52,7 +46,6 @@ public class SecurityConfiguration {
             "/users/{id}/disableUser",
             "/users/{id}/activateUser"
     };
-
     private static final String[] CLIENTE_PATHS = {
             "/savings-accounts/{id}",
             "/savings-accounts/{id}/transactions",
@@ -70,6 +63,8 @@ public class SecurityConfiguration {
             "/schedule/**",
             "/transaction/**"
     };
+    private final JWTAuthenticationFilter jwtAuthenticationFilter;
+    private final CustomUserDetailsService customUserDetailsService;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -79,7 +74,7 @@ public class SecurityConfiguration {
                         .requestMatchers(ADMIN_PATHS).hasAuthority(EnumUserRole.ADMIN.name())
                         .requestMatchers(GERENTE_PATHS).hasAuthority(EnumUserRole.GERENTE.name())
                         .requestMatchers(CLIENTE_PATHS).hasAuthority(EnumUserRole.CLIENTE.name())
-                                .anyRequest().authenticated())
+                        .anyRequest().authenticated())
                 .sessionManagement(maneger -> maneger.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider()).addFilterBefore(
                         jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class
@@ -90,7 +85,7 @@ public class SecurityConfiguration {
     @Bean
     public AuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider authenticationProvider = new DaoAuthenticationProvider();
-        authenticationProvider.setUserDetailsService(userService.userDetailsService());
+        authenticationProvider.setUserDetailsService(customUserDetailsService);
         authenticationProvider.setPasswordEncoder(passwordEncoder());
         return authenticationProvider;
     }

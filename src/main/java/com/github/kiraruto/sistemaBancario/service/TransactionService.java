@@ -1,8 +1,7 @@
-package com.github.kiraruto.sistemaBancario.service.interfaces.impl;
+package com.github.kiraruto.sistemaBancario.service;
 
 import com.github.kiraruto.sistemaBancario.model.enums.EnumStatus;
 import com.github.kiraruto.sistemaBancario.repository.TransactionRepository;
-import com.github.kiraruto.sistemaBancario.service.interfaces.TransactionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -10,7 +9,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-public class TransactionServiceIMPL implements TransactionService {
+public class TransactionService {
     private final TransactionRepository transactionRespository;
 
     public void completed(UUID transactionId) {

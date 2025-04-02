@@ -21,7 +21,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final UserValidate userValidate;
-    private final PasswordEncoder passwordEncoder;;
+    private final PasswordEncoder passwordEncoder;
 
     public List<User> getAllUser() {
         return userRepository.findAllByIsActiveTrue();
@@ -107,7 +107,7 @@ public class UserService {
     public UserDetailsService userDetailsService() {
         return new UserDetailsService() {
             @Override
-            public UserDetails loadUserByUsername(String username){
+            public UserDetails loadUserByUsername(String username) {
                 return userRepository.findByEmail(username)
                         .orElseThrow(() -> new UsernameNotFoundException("Usuario não encontradi"));
             }

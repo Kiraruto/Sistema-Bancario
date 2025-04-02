@@ -1,6 +1,6 @@
 package com.github.kiraruto.sistemaBancario.controller;
 
-import com.github.kiraruto.sistemaBancario.service.interfaces.TransactionService;
+import com.github.kiraruto.sistemaBancario.service.TransactionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
