@@ -25,12 +25,12 @@ import java.util.UUID;
 @Entity
 public class Transaction {
 
-    @Column(name = "origem")
-    public EnumOrigin origin;
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "id")
     private UUID id;
+    @Column(name = "origem")
+    public EnumOrigin origin;
     @Column(name = "account_sends", nullable = false)
     private UUID accountSends;
     @Column(name = "account_recive", nullable = false)

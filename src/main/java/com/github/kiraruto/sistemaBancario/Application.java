@@ -16,30 +16,30 @@ import java.util.List;
 @EnableScheduling
 public class Application implements CommandLineRunner {
 
-	@Autowired
-	private UserRepository userRepository;
+    @Autowired
+    private UserRepository userRepository;
 
     public static void main(String[] args) {
         SpringApplication.run(Application.class, args);
     }
 
-	@Override
-	public void run(String... args) throws Exception {
-		List<User> adminAccount = userRepository.findByRole(EnumUserRole.ADMIN);
-		if (adminAccount.isEmpty()) {
-			User user = new User();
+    @Override
+    public void run(String... args) throws Exception {
+        User adminAccount = userRepository.findByRole(EnumUserRole.ADMIN);
+        if (adminAccount == null) {
+            User user = new User();
 
             user.setUsername("admin");
-			user.setEmail("admin@gmail.com");
+            user.setEmail("admin@gmail.com");
             user.setFirstName("admin");
             user.setLastName("admin");
-			user.setPassword(new BCryptPasswordEncoder().encode("admin"));
-			user.setRole(EnumUserRole.ADMIN);
-			user.setActive(true);
+            user.setPassword(new BCryptPasswordEncoder().encode("admin"));
+            user.setRole(EnumUserRole.ADMIN);
+            user.setActive(true);
 
-			userRepository.save(user);
-		}
-	}
+            userRepository.save(user);
+        }
+    }
 
 
 }
