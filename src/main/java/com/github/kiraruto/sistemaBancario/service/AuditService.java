@@ -1,5 +1,8 @@
 package com.github.kiraruto.sistemaBancario.service;
 
+import com.github.kiraruto.sistemaBancario.exceptions.InvalidAccountIdException;
+import com.github.kiraruto.sistemaBancario.exceptions.InvalidAmountException;
+import com.github.kiraruto.sistemaBancario.exceptions.InvalidCpfException;
 import com.github.kiraruto.sistemaBancario.model.AlertAML;
 import com.github.kiraruto.sistemaBancario.model.enums.EnumStatusAlert;
 import com.github.kiraruto.sistemaBancario.repository.AlertAMLRepository;
@@ -20,6 +23,16 @@ public class AuditService {
 
     @Transactional
     public void registerAlertAML(String accountId, BigDecimal amount, String cpf) {
+        if (amount == null) {
+            throw new InvalidAmountException("Amount cannot be null");
+        }
+        if (accountId == null || accountId.isEmpty()) {
+            throw new InvalidAccountIdException("Account ID cannot be null or empty");
+        }
+        if (cpf == null || cpf.isEmpty()) {
+            throw new InvalidCpfException("CPF cannot be null or empty");
+        }
+
         AlertAML alert = new AlertAML();
         alert.setAccountId(accountId);
         alert.setAmount(amount);
@@ -31,10 +44,4 @@ public class AuditService {
 
         kafkaTemplate.send("alertas-aml", alert);
     }
-
-//    @Scheduled(cron = "0 0 8 * * ?")
-//    public void enviarRelatorioCompliance() {
-//        List<AlertAML> alertasNovos = alertAMLRepository.findByStatus(EnumStatusAlert.NOVO);
-//        // Envia email com alertas pendentes
-//    }
 }

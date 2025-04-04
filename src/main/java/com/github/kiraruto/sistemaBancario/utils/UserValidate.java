@@ -4,6 +4,7 @@ import com.github.kiraruto.sistemaBancario.dto.UserDTO;
 import com.github.kiraruto.sistemaBancario.model.User;
 import com.github.kiraruto.sistemaBancario.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 
 import java.util.UUID;

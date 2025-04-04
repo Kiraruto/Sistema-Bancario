@@ -38,4 +38,8 @@ public class ScheduledTransfer {
     @JoinColumn(name = "user_id", nullable = false)
     @JsonIgnore
     private User user;
+
+    public ScheduledTransfer(UUID scheduledTransferId) {
+        this.id = scheduledTransferId;
+    }
 }

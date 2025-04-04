@@ -74,7 +74,7 @@ public class CheckingAccountValidate {
         Optional<CheckingAccount> checkingAccount = checkingAccountRepository.findById(withdrawRequestDTO.idAccount());
         var ch = checkingAccount.get();
 
-        if (!checkingAccountRepository.existsByFullNameAndEmailAndCpf(ch.getFullName(), ch.getEmail(), ch.getCpf())) {
+        if (checkingAccountRepository.existsByFullNameAndEmailAndCpf(ch.getFullName(), ch.getEmail(), ch.getCpf())) {
             throw new IllegalArgumentException("Não existe conta com este nome, email ou cpf");
         }
 
@@ -115,7 +115,7 @@ public class CheckingAccountValidate {
         Optional<CheckingAccount> checkingAccount = checkingAccountRepository.findById(withdrawalRequestDTO.idAccount());
         var ch = checkingAccount.get();
 
-        if (!checkingAccountRepository.existsByFullNameAndEmailAndCpf(ch.getFullName(), ch.getEmail(), ch.getCpf())) {
+        if (checkingAccountRepository.existsByFullNameAndEmailAndCpf(ch.getFullName(), ch.getEmail(), ch.getCpf())) {
             throw new IllegalArgumentException("Não existe conta com este nome, email ou cpf");
         }
 

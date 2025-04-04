@@ -1,6 +1,5 @@
 package com.github.kiraruto.sistemaBancario.service;
 
-import com.github.kiraruto.sistemaBancario.model.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -24,7 +23,7 @@ public class JWTService {
     public String generateToken(UserDetails userDetails) {
         return Jwts.builder().setSubject(userDetails.getUsername())
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 24))
+                .setExpiration(generateExpirationDate(1000 * 60 * 24)) // 24 minutos
                 .signWith(getSigiKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
@@ -32,13 +31,17 @@ public class JWTService {
     public String generateRefreshToken(HashMap<String, Object> extraClaims, UserDetails userDetails) {
         return Jwts.builder().setClaims(extraClaims).setSubject(userDetails.getUsername())
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + 604800000))
+                .setExpiration(generateExpirationDate(604800000)) // 7 dias
                 .signWith(getSigiKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
 
     public String extractUserName(String token) {
         return extractClain(token, Claims::getSubject);
+    }
+
+    private Date generateExpirationDate(long milliseconds) {
+        return new Date(System.currentTimeMillis() + milliseconds);
     }
 
     private <T> T extractClain(String token, Function<Claims, T> claimsResolvers) {
@@ -54,7 +57,7 @@ public class JWTService {
     private Claims extractAllClain(String token) {
         return Jwts.parserBuilder()
                 .setSigningKey(getSigiKey()).build()
-                .parseClaimsJwt(token)
+                .parseClaimsJws(token)
                 .getBody();
     }
 

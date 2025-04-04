@@ -24,10 +24,11 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfiguration {
 
     private static final String[] PUBLIC_PATHS = {
-            "/auth/**",
+            "/authentication/**",
             "/swagger-ui/**",
-            "/v3/api-docs/**",
+            "/v3/api-docs/**"
     };
+
     private static final String[] ADMIN_PATHS = {
             "/users",
             "/users/**",
@@ -35,34 +36,62 @@ public class SecurityConfiguration {
             "/users/{id}/gerente",
             "/users/{id}/cliente",
             "/users/{id}/disableUser",
-            "/users/{id}/activateUser"
+            "/users/{id}/activateUser",
+            "/transaction/**"
     };
+
     private static final String[] GERENTE_PATHS = {
             "/savings-accounts",
             "/savings-accounts/**",
             "/checking-accounts",
             "/checking-accounts/**",
             "/users/{id}/update",
-            "/users/{id}/disableUser",
-            "/users/{id}/activateUser"
+            "/schedule",
+            "/schedule/**"
     };
+
     private static final String[] CLIENTE_PATHS = {
             "/savings-accounts/{id}",
             "/savings-accounts/{id}/transactions",
             "/savings-accounts/{id}/balance",
             "/savings-accounts/{id}/withdraw",
-            "/savings-accounts/{id}/withdrawal",
-            "/savings-accounts/transfer/savingsAccount",
             "/checking-accounts/{id}",
             "/checking-accounts/{id}/transactions",
             "/checking-accounts/{id}/balance",
             "/checking-accounts/{id}/withdraw",
-            "/checking-accounts/{id}/withdrawal",
-            "/checking-accounts/transfer/checkingAccount",
-            "/schedule",
-            "/schedule/**",
             "/transaction/**"
     };
+
+    private static final String[] ADMIN_GERENTE_PATHS = {
+            "/users/{id}/disableUser",
+            "/users/{id}/activateUser",
+            "/savings-accounts",
+            "/checking-accounts",
+            "/schedule/**"
+    };
+
+    private static final String[] ADMIN_CLIENTE_PATHS = {
+            "/users/{id}/cliente",
+            "/transaction/**",
+            "/savings-accounts/{id}/balance",
+            "/checking-accounts/{id}/balance"
+    };
+
+    private static final String[] GERENTE_CLIENTE_PATHS = {
+            "/savings-accounts/{id}/withdraw",
+            "/savings-accounts/{id}/withdrawal",
+            "/savings-accounts/transfer/savingsAccount",
+            "/checking-accounts/{id}/withdraw",
+            "/checking-accounts/{id}/withdrawal",
+            "/checking-accounts/transfer/checkingAccount",
+            "/schedule"
+    };
+
+    private static final String[] ADMIN_GERENTE_CLIENTE_PATHS = {
+            "/users/{id}/update",
+            "/transaction/**"
+    };
+
     private final JWTAuthenticationFilter jwtAuthenticationFilter;
     private final CustomUserDetailsService customUserDetailsService;
 
@@ -74,6 +103,10 @@ public class SecurityConfiguration {
                         .requestMatchers(ADMIN_PATHS).hasAuthority(EnumUserRole.ADMIN.name())
                         .requestMatchers(GERENTE_PATHS).hasAuthority(EnumUserRole.GERENTE.name())
                         .requestMatchers(CLIENTE_PATHS).hasAuthority(EnumUserRole.CLIENTE.name())
+                        .requestMatchers(ADMIN_GERENTE_PATHS).hasAnyAuthority(EnumUserRole.ADMIN.name(), EnumUserRole.GERENTE.name())
+                        .requestMatchers(ADMIN_CLIENTE_PATHS).hasAnyAuthority(EnumUserRole.ADMIN.name(), EnumUserRole.CLIENTE.name())
+                        .requestMatchers(GERENTE_CLIENTE_PATHS).hasAnyAuthority(EnumUserRole.GERENTE.name(), EnumUserRole.CLIENTE.name())
+                        .requestMatchers(ADMIN_GERENTE_CLIENTE_PATHS).hasAnyAuthority(EnumUserRole.ADMIN.name(), EnumUserRole.GERENTE.name(), EnumUserRole.CLIENTE.name())
                         .anyRequest().authenticated())
                 .sessionManagement(maneger -> maneger.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider()).addFilterBefore(

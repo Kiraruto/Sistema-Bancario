@@ -64,6 +64,10 @@ public class SavingsAccount extends Account {
         this.setBalance(balance.balance());
     }
 
+    public SavingsAccount(UUID savingsAccountId) {
+        this.id = savingsAccountId;
+    }
+
     //    aplicando juros
     public void applyInterest() {
         System.out.println("Aplicando juros da poupança: " + interestRate + "% ao mês.");

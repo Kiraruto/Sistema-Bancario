@@ -10,8 +10,6 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
-import java.util.List;
-
 @SpringBootApplication
 @EnableScheduling
 public class Application implements CommandLineRunner {
@@ -24,7 +22,7 @@ public class Application implements CommandLineRunner {
     }
 
     @Override
-    public void run(String... args) throws Exception {
+    public void run(String... args) {
         User adminAccount = userRepository.findByRole(EnumUserRole.ADMIN);
         if (adminAccount == null) {
             User user = new User();

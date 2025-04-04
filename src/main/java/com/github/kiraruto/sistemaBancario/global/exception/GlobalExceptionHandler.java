@@ -39,18 +39,19 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(TypeTransactionInvalidException.class)
     @ResponseStatus(HttpStatus.UNPROCESSABLE_ENTITY)
-    public ErroResponse handleTypeTransactionInvalidException(TypeTransactionInvalidException e) {
+    public ErroResponse handleTypeTransactionInvalidException(RuntimeException e) {
         return ErroResponse.unprocessable(e.getMessage());
     }
 
     @ExceptionHandler({
             NullPointerException.class,
             StackOverflowError.class,
-            IllegalStateException.class,
-            Exception.class
-    })
+            Exception.class,
+            IllegalStateException.class
+
+})
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-    public ErroResponse handleNullPointerException(Exception e) {
+    public ErroResponse handleNullPointerException(RuntimeException e) {
         return ErroResponse.internalServerError(e.getMessage());
     }
 
@@ -63,46 +64,60 @@ public class GlobalExceptionHandler {
             InsufficientBalanceException.class,
             BankingHoursException.class,
             FraudDetectedException.class,
-            DataIntegrityViolationException.class,
             MethodArgumentTypeMismatchException.class,
             ConstraintViolationException.class,
-            EntityNotFoundException.class
+            InvalidAccountIdException.class,
+            InvalidCpfException.class,
+            InvalidAmountException.class
     })
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErroResponse handleIllegalArgumentException(RuntimeException e) {
         return ErroResponse.badRequest(e.getMessage());
     }
 
-    @ExceptionHandler(RegisterDuplicateException.class)
+    @ExceptionHandler({
+            RegisterDuplicateException.class,
+            DataIntegrityViolationException.class})
     @ResponseStatus(HttpStatus.CONFLICT)
-    public ErroResponse handleRegisterDuplicateException(RegisterDuplicateException e) {
+    public ErroResponse handleRegisterDuplicateException(RuntimeException e) {
         return ErroResponse.conflict(e.getMessage());
     }
 
     @ExceptionHandler({
-            AuthenticationException.class,
-            UsernameNotFoundException.class
+            AuthenticationException.class
     })
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public ErroResponse handleAuthenticationException(RuntimeException e) {
         return ErroResponse.unauthorized(e.getMessage());
     }
 
-    @ExceptionHandler(AccessDeniedException.class)
+    @ExceptionHandler({
+            AccessDeniedException.class,
+            UsernameNotFoundException.class
+    })
     @ResponseStatus(HttpStatus.FORBIDDEN)
-    public ErroResponse handleAccessDeniedException(AccessDeniedException e) {
+    public ErroResponse handleAccessDeniedException(RuntimeException e) {
         return ErroResponse.forbidden(e.getMessage());
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     @ResponseStatus(HttpStatus.METHOD_NOT_ALLOWED)
-    public ErroResponse handleHttpRequestMethodNotSupportedException(HttpRequestMethodNotSupportedException e) {
+    public ErroResponse handleHttpRequestMethodNotSupportedException(RuntimeException e) {
         return ErroResponse.methodNotAllowed(e.getMessage());
     }
 
-    @ExceptionHandler(NoHandlerFoundException.class)
+    @ExceptionHandler({
+            NoHandlerFoundException.class,
+            EntityNotFoundException.class
+    })
     @ResponseStatus(HttpStatus.NOT_FOUND)
-    public ErroResponse handleNoHandlerFoundException(NoHandlerFoundException e) {
+    public ErroResponse handleNoHandlerFoundException(RuntimeException e) {
         return ErroResponse.notFound(e.getMessage());
+    }
+
+    @ExceptionHandler(Throwable.class)
+    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
+    public ErroResponse handleUnexpected(Throwable e) {
+        return ErroResponse.internalServerError("Ocorreu um erro inesperado. Tente novamente mais tarde.");
     }
 }
