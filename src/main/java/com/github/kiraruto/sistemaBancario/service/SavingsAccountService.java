@@ -28,10 +28,6 @@ public class SavingsAccountService {
     private final TransactionRepository transactionRespository;
     private final TransactionValidate transactionValidate;
     private final UserRepository userRepository;
-    private final TransactionService transactionService;
-    private final TransactionScheduleRepository transactionScheduleRepository;
-    private final FraudDetectionService fraudDetectionService;
-    private final BankHoursService bankHoursService;
 
     public List<SavingsAccount> getAll() {
         return savingsAccountRepository.findAll();

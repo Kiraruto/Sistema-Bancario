@@ -36,5 +36,4 @@ public class AlertAML {
     private EnumStatusAlert status;
 
     private String observacoes;
-
 }

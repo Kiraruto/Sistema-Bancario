@@ -5,7 +5,9 @@ import com.github.kiraruto.sistemaBancario.model.User;
 import com.github.kiraruto.sistemaBancario.model.enums.EnumUserRole;
 import com.github.kiraruto.sistemaBancario.repository.UserRepository;
 import com.github.kiraruto.sistemaBancario.utils.UserValidate;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -54,11 +56,16 @@ public class UserService {
 
     public User getUserById(UUID uuid) {
         return userRepository.findById(uuid)
-                .orElseThrow(() -> new IllegalArgumentException("O Id não existe!"));
+                .orElseThrow(() -> new EntityNotFoundException("O Id não existe!"));
     }
 
     public User updateUser(UUID uuid, UserDTO userDTO) {
         User user = userValidate.validateUserTrueToFalse(uuid);
+
+        if (userRepository.existsByEmail(userDTO.email()) &&
+                !user.getEmail().equals(userDTO.email())) {
+            throw new DataIntegrityViolationException("E-mail já cadastrado!");
+        }
 
         user.setEmail(userDTO.email());
         user.setUsername(userDTO.username());
@@ -76,6 +83,10 @@ public class UserService {
             throw new IllegalArgumentException("O usuário já é ADMIN!");
         }
 
+        if (!user.isActive()) {
+            throw new IllegalStateException("O usuário está inativo!");
+        }
+
         user.setRole(EnumUserRole.ADMIN);
         userRepository.save(user);
     }
@@ -88,6 +99,10 @@ public class UserService {
             throw new IllegalArgumentException("O usuário já é GERENTE!");
         }
 
+        if (!user.isActive()) {
+            throw new IllegalStateException("O usuário está inativo!");
+        }
+
         user.setRole(EnumUserRole.GERENTE);
         userRepository.save(user);
     }
@@ -98,6 +113,10 @@ public class UserService {
 
         if (user.getRole() == EnumUserRole.CLIENTE) {
             throw new IllegalArgumentException("O usuário já é CLIENTE!");
+        }
+
+        if (!user.isActive()) {
+            throw new IllegalStateException("O usuário está inativo!");
         }
 
         user.setRole(EnumUserRole.CLIENTE);

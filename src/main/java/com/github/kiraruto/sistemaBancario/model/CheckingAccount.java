@@ -63,4 +63,8 @@ public class CheckingAccount extends Account {
         this.hasOverdraft = checkingAccountDTO.hasOverdraft();
         this.requiresIncomeProof = checkingAccountDTO.requiresIncomeProof();
     }
+
+    public CheckingAccount(UUID checkingAccountId) {
+        this.id = checkingAccountId;
+    }
 }

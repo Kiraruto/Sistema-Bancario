@@ -1,0 +1,12 @@
+com/github/kiraruto/sistemaBancario/service/UserServiceTest.class
+com/github/kiraruto/sistemaBancario/service/UserServiceTest$UserCreationTests.class
+com/github/kiraruto/sistemaBancario/service/TransactionServiceTest$FailTransactionTests.class
+com/github/kiraruto/sistemaBancario/service/UserServiceTest$RoleManagementTests.class
+com/github/kiraruto/sistemaBancario/service/UserServiceTest$UserRetrievalTests.class
+com/github/kiraruto/sistemaBancario/service/UserServiceTest$UserUpdateTests.class
+com/github/kiraruto/sistemaBancario/SistemaBancarioApplicationTests.class
+com/github/kiraruto/sistemaBancario/service/UserServiceTest$UserStatusTests.class
+com/github/kiraruto/sistemaBancario/service/TransactionServiceTest$CompleteTransactionTests.class
+com/github/kiraruto/sistemaBancario/service/AuditServiceTest.class
+com/github/kiraruto/sistemaBancario/suites/TestSuiteService.class
+com/github/kiraruto/sistemaBancario/service/TransactionServiceTest.class

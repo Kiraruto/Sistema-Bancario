@@ -21,4 +21,5 @@ spring:
 
 
 jwt:
-  secret: "zT4KPmW8cA2yF5N9rX3bL7qV1sT0dG6m"
+  secret: "zT4KPmW8cA2yF5N9rX3bL7qV1sT0dG6mY8JwR9H5Q2N3X7Z1KpV6T4G3B0M9L8D5"
+

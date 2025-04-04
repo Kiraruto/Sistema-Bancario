@@ -36,13 +36,12 @@ public class AuthenticationService {
 
     public JWTAuthenticationresponse refreshToken(RefreshTokenRequest refreshTokenRequest) {
         String userEmail = jwtService.extractUserName(refreshTokenRequest.token());
-        User user = userRepository.findByEmail(userEmail).orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado com email: " + userEmail));
+        User user = userRepository.findByUsername(userEmail).orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado com email: " + userEmail));
 
         if (jwtService.isTokenValid(refreshTokenRequest.token(), user)) {
             var jwt = jwtService.generateToken(user);
 
-            JWTAuthenticationresponse jwtAuthenticationresponse = new JWTAuthenticationresponse(jwt, refreshTokenRequest.token());
-            return jwtAuthenticationresponse;
+            return new JWTAuthenticationresponse(jwt, refreshTokenRequest.token());
         }
 
         return null;
