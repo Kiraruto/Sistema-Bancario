@@ -2,6 +2,9 @@ package com.github.kiraruto.sistemaBancario.repository;
 
 import com.github.kiraruto.sistemaBancario.dto.BalanceDTO;
 import com.github.kiraruto.sistemaBancario.model.SavingsAccount;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -15,10 +18,7 @@ public interface SavingsAccountRepository extends JpaRepository<SavingsAccount, 
 
     boolean existsByFullNameAndEmailAndCpf(String fullName, String email, String cpf);
 
-    @Query("SELECT sa.balance FROM SavingsAccount sa WHERE sa.id = :id")
-    BigDecimal findBalanceById(@Param("id") UUID id);
-
     BalanceDTO findFullNameAndBalanceById(UUID uuid);
 
-    boolean existsByUserId(UUID id);
+    UUID findIdByFullNameAndBalance(String s, BigDecimal balance);
 }
