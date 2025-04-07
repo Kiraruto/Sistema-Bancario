@@ -48,8 +48,7 @@ public class GlobalExceptionHandler {
             StackOverflowError.class,
             Exception.class,
             IllegalStateException.class
-
-})
+    })
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ErroResponse handleNullPointerException(RuntimeException e) {
         return ErroResponse.internalServerError(e.getMessage());
@@ -77,7 +76,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({
             RegisterDuplicateException.class,
-            DataIntegrityViolationException.class})
+            DataIntegrityViolationException.class
+    })
     @ResponseStatus(HttpStatus.CONFLICT)
     public ErroResponse handleRegisterDuplicateException(RuntimeException e) {
         return ErroResponse.conflict(e.getMessage());
@@ -118,6 +118,6 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Throwable.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ErroResponse handleUnexpected(Throwable e) {
-        return ErroResponse.internalServerError("Ocorreu um erro inesperado. Tente novamente mais tarde.");
+        return ErroResponse.internalServerError(e.getMessage());
     }
 }

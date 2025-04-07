@@ -2,8 +2,12 @@ package com.github.kiraruto.sistemaBancario.repository;
 
 import com.github.kiraruto.sistemaBancario.dto.BalanceDTO;
 import com.github.kiraruto.sistemaBancario.model.CheckingAccount;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.math.BigDecimal;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -23,4 +27,6 @@ public interface CheckingAccountRepository extends JpaRepository<CheckingAccount
     BalanceDTO findFullNameAndBalanceById(UUID id);
 
     boolean existsByFullNameAndEmailAndCpf(String fullName, String email, String cpf);
+
+    UUID findIdByFullNameAndBalance(String s, BigDecimal balance);
 }

@@ -38,6 +38,4 @@ public class Application implements CommandLineRunner {
             userRepository.save(user);
         }
     }
-
-
 }
