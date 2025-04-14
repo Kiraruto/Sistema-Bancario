@@ -1,4 +1,4 @@
-package com.github.kiraruto.sistemaBancario.utils.interfaces.impl;
+package com.github.kiraruto.sistemaBancario.utils;
 
 import com.github.kiraruto.sistemaBancario.dto.DepositRequestDTO;
 import com.github.kiraruto.sistemaBancario.dto.WithdrawRequestDTO;
@@ -12,8 +12,6 @@ import com.github.kiraruto.sistemaBancario.model.enums.EnumTransactionType;
 import com.github.kiraruto.sistemaBancario.repository.SavingsAccountRepository;
 import com.github.kiraruto.sistemaBancario.repository.TransactionRepository;
 import com.github.kiraruto.sistemaBancario.service.AuditService;
-import com.github.kiraruto.sistemaBancario.utils.DepositValidator;
-import com.github.kiraruto.sistemaBancario.utils.interfaces.TransactionValidate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -23,7 +21,7 @@ import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
-public class TransactionValidateImpl implements TransactionValidate {
+public class TransactionValidate {
 
     private final TransactionRepository transactionRespository;
     private final SavingsAccountRepository savingsAccountRepository;
@@ -89,5 +87,4 @@ public class TransactionValidateImpl implements TransactionValidate {
         }
         return origin;
     }
-
 }

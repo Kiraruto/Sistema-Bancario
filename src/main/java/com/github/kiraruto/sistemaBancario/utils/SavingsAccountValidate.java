@@ -7,7 +7,6 @@ import com.github.kiraruto.sistemaBancario.dto.WithdrawalRequestDTO;
 import com.github.kiraruto.sistemaBancario.model.SavingsAccount;
 import com.github.kiraruto.sistemaBancario.repository.SavingsAccountRepository;
 import com.github.kiraruto.sistemaBancario.repository.UserRepository;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -22,7 +21,6 @@ public class SavingsAccountValidate {
     private final SavingsAccountRepository savingsAccountRepository;
     private final UserRepository userRepository;
 
-    @Transactional
     public void validateCreateAccountSavings(SavingsAccountDTO savingsAccountDTO) {
         if (savingsAccountRepository.existsByFullNameAndEmailAndCpf(savingsAccountDTO.fullName(), savingsAccountDTO.email(), savingsAccountDTO.cpf())) {
             throw new IllegalArgumentException("Conta já existe, não poderá ser criada");
@@ -81,9 +79,13 @@ public class SavingsAccountValidate {
         return savingsAccount;
     }
 
-    public SavingsAccount validateSavingsAccountWithdraw(WithdrawRequestDTO withdrawRequestDTO) {
+    public void validateSavingsAccountDeposit(WithdrawRequestDTO withdrawRequestDTO, UUID uuid) {
         Optional<SavingsAccount> savingsAccount = savingsAccountRepository.findById(withdrawRequestDTO.idAccount());
         var sa = savingsAccount.get();
+
+        if (!withdrawRequestDTO.idAccount().equals(uuid)) {
+            throw new IllegalArgumentException("O id da URL é diferente do id da requisição");
+        }
 
         if (!savingsAccountRepository.existsByFullNameAndEmailAndCpf(sa.getFullName(), sa.getEmail(), sa.getCpf())) {
             throw new IllegalArgumentException("Não existe conta com este nome, email ou cpf");
@@ -96,8 +98,6 @@ public class SavingsAccountValidate {
         if (withdrawRequestDTO.amount().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("O valor do depósito deve ser positivo.");
         }
-
-        return sa;
     }
 
     public SavingsAccount validateSavingsAccountWithdrawal(WithdrawalRequestDTO withdrawalRequestDTO) {

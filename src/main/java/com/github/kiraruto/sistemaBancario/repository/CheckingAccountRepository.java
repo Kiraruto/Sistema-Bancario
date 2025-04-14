@@ -2,9 +2,6 @@ package com.github.kiraruto.sistemaBancario.repository;
 
 import com.github.kiraruto.sistemaBancario.dto.BalanceDTO;
 import com.github.kiraruto.sistemaBancario.model.CheckingAccount;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.math.BigDecimal;

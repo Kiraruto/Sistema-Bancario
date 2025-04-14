@@ -24,9 +24,9 @@ public class AuthenticationService {
 
 
     public JWTAuthenticationresponse signin(SigninRequest singninRequest) {
-        authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(singninRequest.email(), singninRequest.password()));
+        authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(singninRequest.username(), singninRequest.password()));
 
-        UserDetails user = userRepository.findByEmail(singninRequest.email())
+        UserDetails user = userRepository.findByUsername(singninRequest.username())
                 .orElseThrow(() -> new IllegalArgumentException("Email invalido ou senha."));
         var jwt = jwtService.generateToken(user);
         var refreshToken = jwtService.generateRefreshToken(new HashMap<>(), user);

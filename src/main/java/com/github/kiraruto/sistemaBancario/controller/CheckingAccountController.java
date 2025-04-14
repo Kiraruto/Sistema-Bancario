@@ -52,9 +52,9 @@ public class CheckingAccountController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ch);
     }
 
-    @PutMapping("/{id}/withdraw")
-    public ResponseEntity<Void> withdraw(@PathVariable String id, @RequestBody @Valid WithdrawRequestDTO withdrawRequestDTO) {
-        checkingAccountService.withdraw(validateUUID(id), withdrawRequestDTO);
+    @PutMapping("/{id}/deposit")
+    public ResponseEntity<Void> deposit(@PathVariable String id, @RequestBody @Valid WithdrawRequestDTO withdrawRequestDTO) {
+        checkingAccountService.deposit(validateUUID(id), withdrawRequestDTO);
         return ResponseEntity.noContent().build();
     }
 

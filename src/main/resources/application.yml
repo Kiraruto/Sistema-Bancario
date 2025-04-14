@@ -2,7 +2,7 @@ spring:
   application:
     name: Sistema-bancario
   datasource:
-    url: jdbc:postgresql://localhost:5555/banco
+    url: jdbc:postgresql://localhost:5555/bandodedados
     username: username
     password: password
     driver-class-name: org.postgresql.Driver
@@ -14,11 +14,10 @@ spring:
       hibernate.format_sql: true
 
   kafka:
-    bootstrap-servers: localhost:9092
+    bootstrap-servers:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
 
-
 jwt:
-  secret: "password"
+  secret: ""

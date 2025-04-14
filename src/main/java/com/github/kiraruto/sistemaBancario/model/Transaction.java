@@ -6,7 +6,7 @@ import com.github.kiraruto.sistemaBancario.dto.WithdrawalRequestDTO;
 import com.github.kiraruto.sistemaBancario.model.enums.EnumOrigin;
 import com.github.kiraruto.sistemaBancario.model.enums.EnumStatus;
 import com.github.kiraruto.sistemaBancario.model.enums.EnumTransactionType;
-import com.github.kiraruto.sistemaBancario.utils.interfaces.TransactionValidate;
+import com.github.kiraruto.sistemaBancario.utils.TransactionValidate;
 import jakarta.persistence.*;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
@@ -24,13 +24,12 @@ import java.util.UUID;
 @AllArgsConstructor
 @Entity
 public class Transaction {
-
-    @Column(name = "origem")
-    public EnumOrigin origin;
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "id")
     private UUID id;
+    @Column(name = "origem")
+    public EnumOrigin origin;
     @Column(name = "account_sends", nullable = false)
     private UUID accountSends;
     @Column(name = "account_recive", nullable = false)
@@ -43,6 +42,7 @@ public class Transaction {
     @Column(name = "transaction_date", nullable = false)
     private LocalDateTime transactionDate;
     @Column(name = "status", nullable = false)
+    @Enumerated(EnumType.STRING)
     private EnumStatus status;
     @Column(name = "description")
     private String description;
@@ -61,11 +61,11 @@ public class Transaction {
     public Transaction(WithdrawRequestDTO withdrawRequestDTO, TransactionValidate transactionValidate) {
         this.amount = withdrawRequestDTO.amount();
         this.origin = transactionValidate.originDepositTransiction(withdrawRequestDTO);
+        this.accountReceive = withdrawRequestDTO.idAccount();
+        this.accountSends = withdrawRequestDTO.idAccount();
         this.transactionDate = LocalDateTime.now(ZoneId.of("America/Sao_Paulo"));
         this.transactionType = EnumTransactionType.DEPOSITO;
-        this.status = withdrawRequestDTO.amount().compareTo(BigDecimal.valueOf(20000)) > 0
-                ? EnumStatus.PENDENTE
-                : EnumStatus.CONCLUIDA;
+        this.status = EnumStatus.CONCLUIDA;
     }
 
     public Transaction(SavingsAccount sourceAccount, SavingsAccount targetAccount, ScheduledTransfer transfer) {
@@ -86,5 +86,16 @@ public class Transaction {
         this.status = withdrawalRequestDTO.amount().compareTo(BigDecimal.valueOf(20000)) > 0
                 ? EnumStatus.PENDENTE
                 : EnumStatus.CONCLUIDA;
+    }
+
+    public Transaction(WithdrawRequestDTO withdrawRequestDTO, TransactionValidate transactionValidate, EnumStatus enumStatus) {
+        this.amount = withdrawRequestDTO.amount();
+        this.origin = transactionValidate.originDepositTransiction(withdrawRequestDTO);
+        this.accountReceive = withdrawRequestDTO.idAccount();
+        this.accountSends = withdrawRequestDTO.idAccount();
+        this.transactionDate = LocalDateTime.now(ZoneId.of("America/Sao_Paulo"));
+        this.transactionType = EnumTransactionType.DEPOSITO;
+        this.status = enumStatus;
+        this.description = "Transferencia pendente para analise";
     }
 }

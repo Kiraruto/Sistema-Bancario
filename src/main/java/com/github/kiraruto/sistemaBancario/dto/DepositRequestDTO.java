@@ -3,6 +3,7 @@ package com.github.kiraruto.sistemaBancario.dto;
 import com.github.kiraruto.sistemaBancario.model.enums.EnumOrigin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -14,6 +15,7 @@ public record DepositRequestDTO(@NotBlank(message = "O nome completo não pode s
                                 @NotNull(message = "O cpf não pode ser nulo")
                                 String cpf,
                                 @NotNull(message = "O saldo da conta não pode ser nulo")
+                                @Positive(message = "O valor deve ser positivo.")
                                 BigDecimal balance,
                                 @NotNull(message = "A origem não pode ser nula")
                                 EnumOrigin origin,

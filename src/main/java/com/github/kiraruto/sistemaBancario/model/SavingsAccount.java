@@ -9,7 +9,6 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -52,9 +51,9 @@ public class SavingsAccount extends Account {
         this.setMaritalStatus(savingsAccountDTO.maritalStatus());
         this.setPhoneNumber(savingsAccountDTO.phoneNumber());
         this.setEmail(savingsAccountDTO.email());
-        this.setCpf(new BCryptPasswordEncoder().encode(savingsAccountDTO.cpf()));
+        this.setCpf(savingsAccountDTO.cpf().replaceAll("[^\\d]", ""));
         this.setRgOrCnh(savingsAccountDTO.rgOrCnh());
-        this.setDocumentNumber(new BCryptPasswordEncoder().encode(savingsAccountDTO.documentNumber()));
+        this.setDocumentNumber(savingsAccountDTO.documentNumber());
         this.setIsActive(true);
         this.balance = savingsAccountDTO.balance();
     }
