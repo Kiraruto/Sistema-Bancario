@@ -8,15 +8,19 @@ import com.github.kiraruto.sistemaBancario.repository.CheckingAccountRepository;
 import com.github.kiraruto.sistemaBancario.repository.TransactionRepository;
 import com.github.kiraruto.sistemaBancario.repository.UserRepository;
 import com.github.kiraruto.sistemaBancario.utils.CheckingAccountValidate;
-import com.github.kiraruto.sistemaBancario.utils.interfaces.TransactionValidate;
+import com.github.kiraruto.sistemaBancario.utils.TransactionValidate;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +31,12 @@ public class CheckingAccountService {
     private final TransactionRepository transactionRespository;
     private final TransactionValidate transactionValidate;
     private final UserRepository userRepository;
+
+    private final Map<UUID, ReentrantLock> locks = new ConcurrentHashMap<>();
+
+    private ReentrantLock getLock(UUID uuid) {
+        return locks.computeIfAbsent(uuid, k -> new ReentrantLock());
+    }
 
     public List<CheckingAccount> getAll() {
         return checkingAccountRepository.findAll();
@@ -77,49 +87,77 @@ public class CheckingAccountService {
         return fullNameAndBalanceById;
     }
 
-    public void withdraw(UUID uuid, @Valid WithdrawRequestDTO withdrawRequestDTO) {
-        CheckingAccount validateCheckingAccount = checkingAccountValidate.validateCheckingAccountWithdraw(withdrawRequestDTO);
+    public void deposit(UUID uuid, @Valid WithdrawRequestDTO withdrawRequestDTO) {
+        ReentrantLock lock = getLock(uuid);
+        lock.lock();
+        try {
+            CheckingAccount validateCheckingAccount = checkingAccountValidate.validateCheckingAccountWithdraw(withdrawRequestDTO);
 
-        CheckingAccount checkingAccount = checkingAccountRepository.findById(uuid)
-                .orElseThrow(() -> new IllegalArgumentException("A conta com este id não existe"));
+            CheckingAccount checkingAccount = checkingAccountRepository.findById(uuid)
+                    .orElseThrow(() -> new IllegalArgumentException("A conta com este id não existe"));
 
-        Transaction transaction = new Transaction(withdrawRequestDTO, transactionValidate);
-        transactionRespository.save(transaction);
+            if (withdrawRequestDTO.amount().compareTo(validateCheckingAccount.getBalance()) > 0) {
+                throw new IllegalArgumentException("Saldo insuficiente para saque");
+            }
 
-        var balance = validateCheckingAccount.getBalance().add(withdrawRequestDTO.amount());
+            Transaction transaction = new Transaction(withdrawRequestDTO, transactionValidate);
+            transaction.setDescription("Saque");
+            transactionRespository.save(transaction);
 
-        checkingAccount.setBalance(balance);
-        checkingAccountRepository.save(checkingAccount);
+            var balance = validateCheckingAccount.getBalance().subtract(withdrawRequestDTO.amount());
+            checkingAccount.setBalance(balance);
+            checkingAccountRepository.save(checkingAccount);
+        } finally {
+            lock.unlock();
+        }
     }
 
     public void transferCheckingAccount(@Valid DepositRequestDTO depositRequestDTO) {
         checkingAccountValidate.validateDepositChecking(depositRequestDTO);
 
-        Optional<CheckingAccount> chOpt1 = checkingAccountRepository.findById(depositRequestDTO.accountSends());
-        if (chOpt1.isEmpty()) {
-            throw new RuntimeException("Conta com este id não existe");
+        UUID senderId = depositRequestDTO.accountSends();
+        UUID receiverId = depositRequestDTO.accountReceive();
+
+        List<UUID> ordered = Stream.of(senderId, receiverId)
+                .sorted()
+                .toList();
+
+        ReentrantLock firstLock = getLock(ordered.get(0));
+        ReentrantLock secondLock = getLock(ordered.get(1));
+
+        firstLock.lock();
+        secondLock.lock();
+        try {
+            CheckingAccount ch1 = checkingAccountRepository.findById(senderId)
+                    .orElseThrow(() -> new RuntimeException("Conta remetente não existe"));
+
+            CheckingAccount ch2 = checkingAccountRepository.findById(receiverId)
+                    .orElseThrow(() -> new RuntimeException("Conta destinatária não existe"));
+
+            if (depositRequestDTO.balance().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("Valor da transferência deve ser positivo");
+            }
+
+            if (ch1.getBalance().compareTo(depositRequestDTO.balance()) < 0) {
+                throw new IllegalArgumentException("Saldo insuficiente para transferência");
+            }
+
+            BigDecimal newBalance1 = ch1.getBalance().subtract(depositRequestDTO.balance());
+            BigDecimal newBalance2 = ch2.getBalance().add(depositRequestDTO.balance());
+
+            ch1.setBalance(newBalance1);
+            ch2.setBalance(newBalance2);
+
+            checkingAccountRepository.save(ch1);
+            checkingAccountRepository.save(ch2);
+
+            Transaction transaction = new Transaction(depositRequestDTO, transactionValidate);
+            transaction.setDescription("Transferência entre contas");
+            transactionRespository.save(transaction);
+        } finally {
+            secondLock.unlock();
+            firstLock.unlock();
         }
-
-        Optional<CheckingAccount> chOpt2 = checkingAccountRepository.findById(depositRequestDTO.accountReceive());
-        if (chOpt2.isEmpty()) {
-            throw new RuntimeException("Conta com este id não existe");
-        }
-
-        CheckingAccount ch1 = chOpt1.get();
-        CheckingAccount ch2 = chOpt2.get();
-
-        BigDecimal newBalance1 = ch1.getBalance().subtract(depositRequestDTO.balance());
-        BigDecimal newBalance2 = ch2.getBalance().add(depositRequestDTO.balance());
-
-        ch1.setBalance(newBalance1);
-        ch2.setBalance(newBalance2);
-
-        checkingAccountRepository.save(ch1);
-        checkingAccountRepository.save(ch2);
-
-        Transaction transaction = new Transaction(depositRequestDTO, transactionValidate);
-        transaction.setDescription("Deposito Conta Corrente");
-        transactionRespository.save(transaction);
     }
 
     public void disableCheckingAccount(UUID uuid) {
@@ -137,18 +175,27 @@ public class CheckingAccountService {
     }
 
     public void withdrawal(UUID uuid, @Valid WithdrawalRequestDTO withdrawalRequestDTO) {
-        CheckingAccount validateCheckingAccount = checkingAccountValidate.validateCheckingAccountWithdrawal(withdrawalRequestDTO);
+        ReentrantLock lock = getLock(uuid);
+        lock.lock();
+        try {
+            CheckingAccount validateCheckingAccount = checkingAccountValidate.validateCheckingAccountWithdrawal(withdrawalRequestDTO);
 
-        CheckingAccount checkingAccount = checkingAccountRepository.findById(uuid)
-                .orElseThrow(() -> new IllegalArgumentException("A conta com este id não existe"));
+            CheckingAccount checkingAccount = checkingAccountRepository.findById(uuid)
+                    .orElseThrow(() -> new IllegalArgumentException("A conta com este id não existe"));
 
-        Transaction transaction = new Transaction(withdrawalRequestDTO);
-        transaction.setDescription("Saque Conta Pounpança");
-        transactionRespository.save(transaction);
+            if (withdrawalRequestDTO.amount().compareTo(validateCheckingAccount.getBalance()) > 0) {
+                throw new IllegalArgumentException("Saldo insuficiente para saque");
+            }
 
+            Transaction transaction = new Transaction(withdrawalRequestDTO);
+            transaction.setDescription("Saque Conta Poupança");
+            transactionRespository.save(transaction);
 
-        var balance = validateCheckingAccount.getBalance().subtract(withdrawalRequestDTO.amount());
-        checkingAccount.setBalance(balance);
-        checkingAccountRepository.save(checkingAccount);
+            var balance = validateCheckingAccount.getBalance().subtract(withdrawalRequestDTO.amount());
+            checkingAccount.setBalance(balance);
+            checkingAccountRepository.save(checkingAccount);
+        } finally {
+            lock.unlock();
+        }
     }
 }

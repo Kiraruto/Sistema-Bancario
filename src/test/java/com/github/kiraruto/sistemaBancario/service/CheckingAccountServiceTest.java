@@ -11,7 +11,7 @@ import com.github.kiraruto.sistemaBancario.repository.CheckingAccountRepository;
 import com.github.kiraruto.sistemaBancario.repository.TransactionRepository;
 import com.github.kiraruto.sistemaBancario.repository.UserRepository;
 import com.github.kiraruto.sistemaBancario.utils.CheckingAccountValidate;
-import com.github.kiraruto.sistemaBancario.utils.interfaces.TransactionValidate;
+import com.github.kiraruto.sistemaBancario.utils.TransactionValidate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -250,9 +250,9 @@ class CheckingAccountServiceTest {
             when(checkingAccountRepository.findById(accountId))
                     .thenReturn(Optional.of(checkingAccount));
 
-            checkingAccountService.withdraw(accountId, request);
+            checkingAccountService.deposit(accountId, request);
 
-            assertEquals(BigDecimal.valueOf(1100), checkingAccount.getBalance());
+            assertEquals(BigDecimal.valueOf(900), checkingAccount.getBalance());
             verify(transactionRepository).save(any(Transaction.class));
             verify(checkingAccountRepository).save(checkingAccount);
         }
@@ -267,7 +267,7 @@ class CheckingAccountServiceTest {
                     .thenReturn(Optional.empty());
 
             assertThrows(IllegalArgumentException.class, () -> {
-                checkingAccountService.withdraw(accountId, request);
+                checkingAccountService.deposit(accountId, request);
             });
         }
     }

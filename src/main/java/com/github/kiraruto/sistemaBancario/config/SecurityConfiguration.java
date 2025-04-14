@@ -78,13 +78,14 @@ public class SecurityConfiguration {
     };
 
     private static final String[] GERENTE_CLIENTE_PATHS = {
-            "/savings-accounts/{id}/withdraw",
+            "/savings-accounts/{id}/deposit",
             "/savings-accounts/{id}/withdrawal",
             "/savings-accounts/transfer/savingsAccount",
-            "/checking-accounts/{id}/withdraw",
+            "/checking-accounts/{id}/deposit",
             "/checking-accounts/{id}/withdrawal",
             "/checking-accounts/transfer/checkingAccount",
-            "/schedule"
+            "/schedule",
+            "/transfer"
     };
 
     private static final String[] ADMIN_GERENTE_CLIENTE_PATHS = {

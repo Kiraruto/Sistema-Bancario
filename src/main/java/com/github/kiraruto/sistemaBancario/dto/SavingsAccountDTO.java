@@ -42,7 +42,7 @@ public record SavingsAccountDTO(
         String email,
 
         @CPF(message = "O CPF deve ser válido")
-        @Size(max = 11, message = "O CPF não pode ter mais de 11 caracteres")
+        @Size(min = 11, max = 11, message = "O CPF não pode ter mais de 11 caracteres")
         @NotNull(message = "O cpf não pode ser nulo")
         @JsonAlias({"cpf", "numero_cpf"}) // Alias for flexibility in JSON naming
         String cpf,
@@ -51,7 +51,7 @@ public record SavingsAccountDTO(
         @JsonAlias({"document_type", "tipo_documento"}) // Alias for flexibility in JSON naming
         EnumTypeDocument rgOrCnh,
 
-        @Size(max = 11, message = "O número do documento não pode ter mais de 11 caracteres")
+        @Size(max = 20, message = "O número do documento não pode ter mais de 20 caracteres")
         @NotBlank(message = "O número do documento não pode ser nulo")
         @JsonAlias({"document_number", "numero_documento"}) // Alias for flexibility in JSON naming
         String documentNumber,

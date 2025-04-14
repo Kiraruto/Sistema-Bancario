@@ -24,7 +24,7 @@ public class JWTService {
         return Jwts.builder().setSubject(userDetails.getUsername())
                 .setIssuedAt(new Date(System.currentTimeMillis()))
                 .setExpiration(generateExpirationDate(1000 * 60 * 24)) // 24 minutos
-                .signWith(getSigiKey(), SignatureAlgorithm.HS256)
+                .signWith(getSignKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
 
@@ -32,7 +32,7 @@ public class JWTService {
         return Jwts.builder().setClaims(extraClaims).setSubject(userDetails.getUsername())
                 .setIssuedAt(new Date(System.currentTimeMillis()))
                 .setExpiration(generateExpirationDate(604800000)) // 7 dias
-                .signWith(getSigiKey(), SignatureAlgorithm.HS256)
+                .signWith(getSignKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
 
@@ -49,14 +49,14 @@ public class JWTService {
         return claimsResolvers.apply(claims);
     }
 
-    private Key getSigiKey() {
+    private Key getSignKey() {
         byte[] key = Decoders.BASE64.decode(jwtSecret);
         return Keys.hmacShaKeyFor(key);
     }
 
     private Claims extractAllClain(String token) {
         return Jwts.parserBuilder()
-                .setSigningKey(getSigiKey()).build()
+                .setSigningKey(getSignKey()).build()
                 .parseClaimsJws(token)
                 .getBody();
     }

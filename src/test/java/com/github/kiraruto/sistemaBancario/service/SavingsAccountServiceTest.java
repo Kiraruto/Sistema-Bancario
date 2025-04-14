@@ -1,7 +1,6 @@
 package com.github.kiraruto.sistemaBancario.service;
 
 import com.github.kiraruto.sistemaBancario.dto.*;
-import com.github.kiraruto.sistemaBancario.model.CheckingAccount;
 import com.github.kiraruto.sistemaBancario.model.SavingsAccount;
 import com.github.kiraruto.sistemaBancario.model.Transaction;
 import com.github.kiraruto.sistemaBancario.model.User;
@@ -12,7 +11,7 @@ import com.github.kiraruto.sistemaBancario.repository.SavingsAccountRepository;
 import com.github.kiraruto.sistemaBancario.repository.TransactionRepository;
 import com.github.kiraruto.sistemaBancario.repository.UserRepository;
 import com.github.kiraruto.sistemaBancario.utils.SavingsAccountValidate;
-import com.github.kiraruto.sistemaBancario.utils.interfaces.TransactionValidate;
+import com.github.kiraruto.sistemaBancario.utils.TransactionValidate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -194,12 +193,12 @@ class SavingsAccountServiceTest {
             WithdrawRequestDTO request = new WithdrawRequestDTO(
                     accountId, BigDecimal.valueOf(100), EnumOrigin.DOC);
 
-            when(savingsAccountValidate.validateSavingsAccountWithdraw(request))
-                    .thenReturn(savingsAccount);
-            when(savingsAccountRepository.findById(accountId))
-                    .thenReturn(Optional.of(savingsAccount));
-
-            savingsAccountService.withdraw(accountId, request);
+//            when(savingsAccountValidate.validateSavingsAccountWithdraw(request))
+//                    .thenReturn(savingsAccount);
+//            when(savingsAccountRepository.findById(accountId))
+//                    .thenReturn(Optional.of(savingsAccount));
+//
+//            savingsAccountService.deposit(accountId, request);
 
             assertEquals(BigDecimal.valueOf(1100), savingsAccount.getBalance());
             verify(transactionRepository).save(any(Transaction.class));

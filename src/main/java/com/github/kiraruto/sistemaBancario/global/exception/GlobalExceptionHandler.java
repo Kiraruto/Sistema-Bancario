@@ -50,7 +50,7 @@ public class GlobalExceptionHandler {
             IllegalStateException.class
     })
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-    public ErroResponse handleNullPointerException(RuntimeException e) {
+    public ErroResponse handleException(Throwable e) {
         return ErroResponse.internalServerError(e.getMessage());
     }
 
@@ -108,7 +108,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({
             NoHandlerFoundException.class,
-            EntityNotFoundException.class
+            EntityNotFoundException.class,
+            PendingTransactionNotFoundException.class
     })
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public ErroResponse handleNoHandlerFoundException(RuntimeException e) {
