@@ -35,6 +35,7 @@ public class Transaction {
     @Column(name = "account_recive", nullable = false)
     private UUID accountReceive;
     @Column(name = "transaction_type", nullable = false)
+    @Enumerated(EnumType.STRING)
     private EnumTransactionType transactionType;
     @Column(name = "amount", precision = 18, scale = 2, nullable = false)
     private BigDecimal amount;
