@@ -67,7 +67,9 @@ public class GlobalExceptionHandler {
             ConstraintViolationException.class,
             InvalidAccountIdException.class,
             InvalidCpfException.class,
-            InvalidAmountException.class
+            InvalidAmountException.class,
+            FrequentLargeDepositsException.class,
+            DepositLimitExceededException.class
     })
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErroResponse handleIllegalArgumentException(RuntimeException e) {

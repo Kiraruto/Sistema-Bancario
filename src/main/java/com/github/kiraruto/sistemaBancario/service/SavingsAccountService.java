@@ -1,6 +1,8 @@
 package com.github.kiraruto.sistemaBancario.service;
 
 import com.github.kiraruto.sistemaBancario.dto.*;
+import com.github.kiraruto.sistemaBancario.exceptions.DepositLimitExceededException;
+import com.github.kiraruto.sistemaBancario.exceptions.FrequentLargeDepositsException;
 import com.github.kiraruto.sistemaBancario.model.AlertAML;
 import com.github.kiraruto.sistemaBancario.model.SavingsAccount;
 import com.github.kiraruto.sistemaBancario.model.Transaction;
@@ -16,6 +18,8 @@ import com.github.kiraruto.sistemaBancario.utils.TransactionValidate;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -38,6 +42,8 @@ public class SavingsAccountService {
     private final UserRepository userRepository;
     private final AuditService auditService;
     private final AlertAMLRepository alertAMLRepository;
+
+    private static final Logger log = LoggerFactory.getLogger(SavingsAccountService.class);
 
     private final ConcurrentHashMap<UUID, ReentrantLock> locks = new ConcurrentHashMap<>();
 
@@ -171,63 +177,50 @@ public class SavingsAccountService {
                         valorDeposito,
                         savingsAccount.getCpf()
                 );
+
+                throw new DepositLimitExceededException("O valor do depósito excede o limite permitido de R$ 50.000");
             }
 
             LocalDateTime dataLimite = LocalDateTime.now(ZoneId.of("America/Sao_Paulo")).minusHours(24);
             List<Transaction> ultimasTransacoes = transactionRespository.findLasts24Hours(uuid, dataLimite);
-
-            System.out.println("Transações nas últimas 24h: " + ultimasTransacoes.size());
+            log.debug("Transações nas últimas 24h: {}", ultimasTransacoes.size());
 
             Map<BigDecimal, List<Transaction>> transacoesPorValor = ultimasTransacoes.stream()
+                    .filter(t -> t.getTransactionType().equals(EnumTransactionType.DEPOSITO))
                     .collect(Collectors.groupingBy(Transaction::getAmount));
 
             for (Map.Entry<BigDecimal, List<Transaction>> entry : transacoesPorValor.entrySet()) {
                 List<Transaction> transacoesMesmoValor = entry.getValue().stream()
-                        .filter(t -> t.getTransactionType().equals(EnumTransactionType.DEPOSITO))
                         .sorted(Comparator.comparing(Transaction::getTransactionDate))
                         .toList();
 
                 for (int i = 0; i <= transacoesMesmoValor.size() - 3; i++) {
                     LocalDateTime primeira = transacoesMesmoValor.get(i).getTransactionDate();
                     LocalDateTime terceira = transacoesMesmoValor.get(i + 2).getTransactionDate();
-
                     Duration intervalo = Duration.between(primeira, terceira);
                     if (intervalo.toMinutes() < 5) {
-                        System.out.println("[FRAUDE] Três depósitos do mesmo valor em menos de 5 minutos: " + entry.getKey());
+                        log.warn("[FRAUDE] Três depósitos do mesmo valor ({}) em menos de 5 minutos", entry.getKey());
 
-                        Transaction transaction = new Transaction(withdrawRequestDTO, transactionValidate, EnumStatus.PENDENTE);
-                        transaction.setDescription("Depósito suspeito: 3 valores iguais em < 5 minutos");
-                        transactionRespository.save(transaction);
+                        Transaction fraudTransaction = new Transaction(withdrawRequestDTO, transactionValidate, EnumStatus.PENDENTE);
+                        fraudTransaction.setDescription("Depósito suspeito: 3 valores iguais em < 5 minutos");
+                        transactionRespository.save(fraudTransaction);
 
-                        alertAMLRepository.save(new AlertAML(transaction, savingsAccount.getCpf()));
+                        alertAMLRepository.save(new AlertAML(fraudTransaction, savingsAccount.getCpf()));
                         return;
                     }
                 }
             }
 
-            LocalDateTime dataLimite1 = LocalDateTime.now(ZoneId.of("America/Sao_Paulo")).minusHours(24);
-            List<Transaction> ultimasTransacoes1 = transactionRespository.findLasts24Hours(uuid, dataLimite1);
+            if (valorDeposito.compareTo(BigDecimal.valueOf(10000)) > 0) {
+                Transaction fraudTransaction = new Transaction(withdrawRequestDTO, transactionValidate, EnumStatus.PENDENTE);
+                fraudTransaction.setDescription("Depósito acima de R$ 10.000 - Verificação manual");
+                transactionRespository.save(fraudTransaction);
 
-            System.out.println("Transações nas últimas 24h: " + ultimasTransacoes1.size());
+                alertAMLRepository.save(new AlertAML(fraudTransaction, savingsAccount.getCpf()));
 
-            long depositosRecentes = ultimasTransacoes1.stream()
-                    .peek(t -> System.out.println("Transação: " + t.getTransactionType() + " - " + t.getAmount()))
-                    .filter(t -> t.getTransactionType().equals(EnumTransactionType.DEPOSITO))
-                    .filter(t -> t.getAmount().compareTo(BigDecimal.valueOf(9000)) >= 0)
-                    .count();
-
-            System.out.println("Depósitos recentes >= 9k: " + depositosRecentes);
-
-            if (valorDeposito.compareTo(BigDecimal.valueOf(9000)) >= 0 && depositosRecentes >= 5) {
-                System.out.println("[ALERTA] Depósito bloqueado por recorrência na conta " + uuid);
-
-                Transaction transaction = new Transaction(withdrawRequestDTO, transactionValidate, EnumStatus.PENDENTE);
-                transaction.setDescription("Depósito suspeito por recorrência");
-                transactionRespository.save(transaction);
-
-                alertAMLRepository.save(new AlertAML(transaction, savingsAccount.getCpf()));
-                return;
+                throw new DepositLimitExceededException("O valor do depósito excede o limite permitido de R$ 50.000");
             }
+
 
             Transaction transaction = new Transaction(withdrawRequestDTO, transactionValidate);
             transaction.setDescription("Depósito");
@@ -245,20 +238,37 @@ public class SavingsAccountService {
         ReentrantLock lock = getLock(uuid);
         lock.lock();
         try {
-            SavingsAccount validateSavingsAccount = savingsAccountValidate.validateSavingsAccountWithdrawal(withdrawalRequestDTO);
+            SavingsAccount savingsAccount = savingsAccountValidate.validateSavingsAccountWithdrawal(withdrawalRequestDTO);
 
-            SavingsAccount savingsAccount = savingsAccountRepository.findById(uuid)
-                    .orElseThrow(() -> new IllegalArgumentException("A conta com este id não existe"));
-
-            if (withdrawalRequestDTO.amount().compareTo(validateSavingsAccount.getBalance()) > 0) {
+            if (withdrawalRequestDTO.amount().compareTo(savingsAccount.getBalance()) > 0) {
                 throw new IllegalArgumentException("Saldo insuficiente");
             }
 
+            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime twentyFourHoursAgo = now.minusHours(24);
+
+            BigDecimal totalWithdrawnLast24Hours = transactionRespository
+                    .sumWithdrawalsByAccountAndDateTimeRange(uuid,
+                            EnumTransactionType.SAQUE,
+                            twentyFourHoursAgo,
+                            now)
+                    .orElse(BigDecimal.ZERO);
+
+            BigDecimal totalWithCurrent = totalWithdrawnLast24Hours.add(withdrawalRequestDTO.amount());
+
+            if (totalWithCurrent.compareTo(BigDecimal.valueOf(2000)) > 0) {
+                throw new IllegalArgumentException("Limite de saque das últimas 24 horas excedido (R$ 2.000,00)");
+            }
+
             Transaction transaction = new Transaction(withdrawalRequestDTO);
+            transaction.setTransactionType(EnumTransactionType.SAQUE);
             transaction.setDescription("Saque Conta Poupança");
+            transaction.setTransactionDate(now);
+            transaction.setAccountReceive(withdrawalRequestDTO.idAccount());
+            transaction.setAccountSends(withdrawalRequestDTO.idAccount());
             transactionRespository.save(transaction);
 
-            var balance = validateSavingsAccount.getBalance().subtract(withdrawalRequestDTO.amount());
+            BigDecimal balance = savingsAccount.getBalance().subtract(withdrawalRequestDTO.amount());
             savingsAccount.setBalance(balance);
             savingsAccountRepository.save(savingsAccount);
         } finally {

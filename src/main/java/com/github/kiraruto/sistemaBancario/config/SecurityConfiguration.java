@@ -54,11 +54,9 @@ public class SecurityConfiguration {
             "/savings-accounts/{id}",
             "/savings-accounts/{id}/transactions",
             "/savings-accounts/{id}/balance",
-            "/savings-accounts/{id}/withdraw",
             "/checking-accounts/{id}",
             "/checking-accounts/{id}/transactions",
             "/checking-accounts/{id}/balance",
-            "/checking-accounts/{id}/withdraw",
             "/transaction/**"
     };
 
@@ -79,11 +77,11 @@ public class SecurityConfiguration {
 
     private static final String[] GERENTE_CLIENTE_PATHS = {
             "/savings-accounts/{id}/deposit",
-            "/savings-accounts/{id}/withdrawal",
             "/savings-accounts/transfer/savingsAccount",
+            "/savings-accounts/{id}/withdrawal",
             "/checking-accounts/{id}/deposit",
-            "/checking-accounts/{id}/withdrawal",
             "/checking-accounts/transfer/checkingAccount",
+            "/checking-accounts/{id}/withdrawal",
             "/schedule",
             "/transfer"
     };
