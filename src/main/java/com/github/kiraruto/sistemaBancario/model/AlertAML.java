@@ -2,11 +2,9 @@ package com.github.kiraruto.sistemaBancario.model;
 
 import com.github.kiraruto.sistemaBancario.model.enums.EnumStatusAlert;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.validator.constraints.br.CPF;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
