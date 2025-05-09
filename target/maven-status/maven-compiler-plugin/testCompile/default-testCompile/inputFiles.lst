@@ -1,5 +1,10 @@
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/test/java/com/github/kiraruto/sistemaBancario/SistemaBancarioApplicationTests.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/test/java/com/github/kiraruto/sistemaBancario/service/AuditServiceTest.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/test/java/com/github/kiraruto/sistemaBancario/service/TransactionServiceTest.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/test/java/com/github/kiraruto/sistemaBancario/service/UserServiceTest.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/test/java/com/github/kiraruto/sistemaBancario/suites/TestSuiteService.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/test/java/com/github/kiraruto/sistemaBancario/service/AuditServiceTest.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/test/java/com/github/kiraruto/sistemaBancario/service/CheckingAccountServiceTest.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/test/java/com/github/kiraruto/sistemaBancario/service/TransactionServiceTest.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/test/java/com/github/kiraruto/sistemaBancario/controller/SavingsAccountControllerTest.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/test/java/com/github/kiraruto/sistemaBancario/SistemaBancarioApplicationTests.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/test/java/com/github/kiraruto/sistemaBancario/service/UserServiceTest.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/test/java/com/github/kiraruto/sistemaBancario/batch/config/JobExecutionTest.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/test/java/com/github/kiraruto/sistemaBancario/service/SavingsAccountServiceTest.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/test/java/com/github/kiraruto/sistemaBancario/controller/UserControllerTest.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/test/java/com/github/kiraruto/sistemaBancario/controller/TransactionControllerTest.java

@@ -2,7 +2,6 @@ package com.github.kiraruto.sistemaBancario.service;
 
 import com.github.kiraruto.sistemaBancario.dto.*;
 import com.github.kiraruto.sistemaBancario.exceptions.DepositLimitExceededException;
-import com.github.kiraruto.sistemaBancario.exceptions.FrequentLargeDepositsException;
 import com.github.kiraruto.sistemaBancario.model.AlertAML;
 import com.github.kiraruto.sistemaBancario.model.SavingsAccount;
 import com.github.kiraruto.sistemaBancario.model.Transaction;
@@ -15,7 +14,6 @@ import com.github.kiraruto.sistemaBancario.repository.TransactionRepository;
 import com.github.kiraruto.sistemaBancario.repository.UserRepository;
 import com.github.kiraruto.sistemaBancario.utils.SavingsAccountValidate;
 import com.github.kiraruto.sistemaBancario.utils.TransactionValidate;
-import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -35,6 +33,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class SavingsAccountService {
 
+    private static final Logger log = LoggerFactory.getLogger(SavingsAccountService.class);
     private final SavingsAccountRepository savingsAccountRepository;
     private final SavingsAccountValidate savingsAccountValidate;
     private final TransactionRepository transactionRespository;
@@ -42,9 +41,6 @@ public class SavingsAccountService {
     private final UserRepository userRepository;
     private final AuditService auditService;
     private final AlertAMLRepository alertAMLRepository;
-
-    private static final Logger log = LoggerFactory.getLogger(SavingsAccountService.class);
-
     private final ConcurrentHashMap<UUID, ReentrantLock> locks = new ConcurrentHashMap<>();
 
     private ReentrantLock getLock(UUID id) {
@@ -159,7 +155,6 @@ public class SavingsAccountService {
                 .toList();
     }
 
-    @Transactional
     public void deposit(UUID uuid, WithdrawRequestDTO withdrawRequestDTO) {
         ReentrantLock lock = getLock(uuid);
         lock.lock();
@@ -220,7 +215,6 @@ public class SavingsAccountService {
 
                 throw new DepositLimitExceededException("O valor do depósito excede o limite permitido de R$ 50.000");
             }
-
 
             Transaction transaction = new Transaction(withdrawRequestDTO, transactionValidate);
             transaction.setDescription("Depósito");

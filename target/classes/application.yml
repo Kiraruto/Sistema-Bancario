@@ -13,6 +13,11 @@ spring:
     properties:
       hibernate.format_sql: true
 
+  batch:
+    jdbc:
+      schema: classpath:/table/V7__create_batch_tables.sql
+      table-prefix: batch.BATCH_
+
   kafka:
     bootstrap-servers: localhost:9092
     producer:

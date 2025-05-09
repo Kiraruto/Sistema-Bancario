@@ -4,16 +4,21 @@ import com.github.kiraruto.sistemaBancario.dto.*;
 import com.github.kiraruto.sistemaBancario.model.CheckingAccount;
 import com.github.kiraruto.sistemaBancario.model.Transaction;
 import com.github.kiraruto.sistemaBancario.model.User;
+import com.github.kiraruto.sistemaBancario.model.enums.EnumTransactionType;
 import com.github.kiraruto.sistemaBancario.repository.CheckingAccountRepository;
 import com.github.kiraruto.sistemaBancario.repository.TransactionRepository;
 import com.github.kiraruto.sistemaBancario.repository.UserRepository;
 import com.github.kiraruto.sistemaBancario.utils.CheckingAccountValidate;
 import com.github.kiraruto.sistemaBancario.utils.TransactionValidate;
+import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -26,12 +31,14 @@ import java.util.stream.Stream;
 @RequiredArgsConstructor
 public class CheckingAccountService {
 
+    private static final Logger log = LoggerFactory.getLogger(CheckingAccountService.class);
     private final CheckingAccountRepository checkingAccountRepository;
     private final CheckingAccountValidate checkingAccountValidate;
     private final TransactionRepository transactionRespository;
     private final TransactionValidate transactionValidate;
     private final UserRepository userRepository;
-
+    private final WithdrawalValidatorService withdrawalValidatorService;
+    private final DepositValidatorService depositValidatorService;
     private final Map<UUID, ReentrantLock> locks = new ConcurrentHashMap<>();
 
     private ReentrantLock getLock(UUID uuid) {
@@ -87,25 +94,29 @@ public class CheckingAccountService {
         return fullNameAndBalanceById;
     }
 
+    @Transactional
     public void deposit(UUID uuid, @Valid WithdrawRequestDTO withdrawRequestDTO) {
         ReentrantLock lock = getLock(uuid);
         lock.lock();
         try {
-            CheckingAccount validateCheckingAccount = checkingAccountValidate.validateCheckingAccountWithdraw(withdrawRequestDTO);
+            checkingAccountValidate.validateCheckingAccountWithdraw(withdrawRequestDTO);
 
             CheckingAccount checkingAccount = checkingAccountRepository.findById(uuid)
                     .orElseThrow(() -> new IllegalArgumentException("A conta com este id não existe"));
 
-            if (withdrawRequestDTO.amount().compareTo(validateCheckingAccount.getBalance()) > 0) {
-                throw new IllegalArgumentException("Saldo insuficiente para saque");
-            }
+            BigDecimal depositAmount = withdrawRequestDTO.amount();
+
+            depositValidatorService.validateDepositLimit(checkingAccount, depositAmount);
+            depositValidatorService.detectSuspiciousDeposits(uuid, checkingAccount, withdrawRequestDTO);
+            depositValidatorService.checkFrequentLargeDeposits(uuid, checkingAccount, withdrawRequestDTO, depositAmount);
+            depositValidatorService.checkDepositAboveTenThousand(checkingAccount, withdrawRequestDTO, depositAmount);
 
             Transaction transaction = new Transaction(withdrawRequestDTO, transactionValidate);
-            transaction.setDescription("Saque");
+            transaction.setDescription("Depósito");
             transactionRespository.save(transaction);
 
-            var balance = validateCheckingAccount.getBalance().subtract(withdrawRequestDTO.amount());
-            checkingAccount.setBalance(balance);
+            BigDecimal newBalance = checkingAccount.getBalance().add(depositAmount);
+            checkingAccount.setBalance(newBalance);
             checkingAccountRepository.save(checkingAccount);
         } finally {
             lock.unlock();
@@ -174,24 +185,28 @@ public class CheckingAccountService {
         checkingAccountRepository.save(checkingAccount);
     }
 
+    @Transactional
     public void withdrawal(UUID uuid, @Valid WithdrawalRequestDTO withdrawalRequestDTO) {
         ReentrantLock lock = getLock(uuid);
         lock.lock();
         try {
-            CheckingAccount validateCheckingAccount = checkingAccountValidate.validateCheckingAccountWithdrawal(withdrawalRequestDTO);
+            CheckingAccount checkingAccount = checkingAccountValidate.validateCheckingAccountWithdrawal(withdrawalRequestDTO);
 
-            CheckingAccount checkingAccount = checkingAccountRepository.findById(uuid)
-                    .orElseThrow(() -> new IllegalArgumentException("A conta com este id não existe"));
-
-            if (withdrawalRequestDTO.amount().compareTo(validateCheckingAccount.getBalance()) > 0) {
+            if (withdrawalRequestDTO.amount().compareTo(checkingAccount.getBalance()) > 0) {
                 throw new IllegalArgumentException("Saldo insuficiente para saque");
             }
 
+            withdrawalValidatorService.validateWithdrawalLimit(uuid, withdrawalRequestDTO.amount());
+
             Transaction transaction = new Transaction(withdrawalRequestDTO);
-            transaction.setDescription("Saque Conta Poupança");
+            transaction.setTransactionType(EnumTransactionType.SAQUE);
+            transaction.setDescription("Saque Conta Corrente");
+            transaction.setTransactionDate(LocalDateTime.now());
+            transaction.setAccountReceive(withdrawalRequestDTO.idAccount());
+            transaction.setAccountSends(withdrawalRequestDTO.idAccount());
             transactionRespository.save(transaction);
 
-            var balance = validateCheckingAccount.getBalance().subtract(withdrawalRequestDTO.amount());
+            BigDecimal balance = checkingAccount.getBalance().subtract(withdrawalRequestDTO.amount());
             checkingAccount.setBalance(balance);
             checkingAccountRepository.save(checkingAccount);
         } finally {

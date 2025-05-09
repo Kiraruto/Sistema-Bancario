@@ -1,77 +1,88 @@
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/Application.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/batch/config/BatchConfig.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/config/InterestJobSchedulerConfig.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/config/JWTAuthenticationFilter.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/config/SecurityConfiguration.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/controller/AuthenticationController.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/controller/CheckingAccountController.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/controller/SavingsAccountController.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/controller/ScheduledTransferController.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/controller/TransactionController.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/controller/UserController.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/dto/BalanceDTO.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/dto/CheckingAccountDTO.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/dto/DepositRequestDTO.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/dto/JWTAuthenticationresponse.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/dto/RefreshTokenRequest.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/dto/SavingsAccountDTO.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/dto/ScheduledTransferDTO.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/dto/SigninRequest.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/dto/TransactionDTO.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/dto/UserDTO.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/dto/WithdrawRequestDTO.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/dto/WithdrawalRequestDTO.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/dto/error/ErroResponse.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/dto/error/ErrorCamp.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/exceptions/AccountNotFoundException.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/exceptions/BankingHoursException.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/exceptions/DocLimitExceededException.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/exceptions/FraudDetectedException.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/exceptions/InsufficientBalanceException.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/exceptions/InvalidDepositOriginException.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/exceptions/RegisterDuplicateException.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/exceptions/ScheduleDocClosedException.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/exceptions/TypeTransactionInvalidException.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/global/exception/GlobalExceptionHandler.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/model/Account.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/model/AlertAML.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/model/CheckingAccount.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/model/SavingsAccount.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/model/ScheduledTransfer.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/model/Transaction.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/model/User.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/model/enums/EnumMaritalStatus.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/model/enums/EnumOrigin.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/model/enums/EnumStatus.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/model/enums/EnumStatusAlert.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/model/enums/EnumTransactionType.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/model/enums/EnumTypeDocument.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/model/enums/EnumUserRole.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/repository/AlertAMLRepository.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/repository/CheckingAccountRepository.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/repository/SavingsAccountRepository.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/repository/ScheduledTransferRepository.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/repository/TransactionRepository.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/repository/TransactionScheduleRepository.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/repository/UserRepository.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/service/AMLService.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/service/AuditService.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/service/AuthenticationService.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/service/BankHoursService.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/service/CheckingAccountService.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/service/CustomUserDetailsService.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/service/FraudDetectionService.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/service/HolidayService.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/service/JWTService.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/service/SavingsAccountService.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/service/ScheduledTransferService.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/service/TransactionService.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/service/UserService.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/utils/CheckingAccountValidate.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/utils/DepositValidator.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/utils/SavingsAccountValidate.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/utils/UserValidate.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/utils/ValidateScheduleTransfer.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/utils/VerifyUUID.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/utils/interfaces/TransactionValidate.java
-/home/gustavo/Área de trabalho/curso/Programar Sozinho/ Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/utils/interfaces/impl/TransactionValidateImpl.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/service/DepositValidatorService.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/controller/CheckingAccountController.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/exceptions/DocLimitExceededException.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/exceptions/InvalidAmountException.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/utils/UserValidate.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/model/CheckingAccount.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/model/enums/EnumStatus.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/exceptions/InvalidDepositOriginException.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/dto/RefreshTokenRequest.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/dto/BalanceDTO.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/dto/CheckingAccountDTO.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/dto/UserDTO.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/model/enums/EnumMaritalStatus.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/dto/error/ErroResponse.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/model/AlertAML.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/repository/ScheduledTransferRepository.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/utils/ValidateScheduleTransfer.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/service/BankHoursService.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/utils/DepositValidator.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/dto/ScheduledTransferDTO.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/dto/WithdrawRequestDTO.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/dto/TransferRequestDTO.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/exceptions/InvalidAccountIdException.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/dto/DepositRequestDTO.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/utils/VerifyUUID.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/global/exception/GlobalExceptionHandler.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/utils/TransactionValidate.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/service/FraudDetectionService.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/controller/SavingsAccountController.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/exceptions/RegisterDuplicateException.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/service/AuditService.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/config/JWTAuthenticationFilter.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/model/enums/EnumStatusAlert.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/repository/TransactionRepository.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/exceptions/DepositLimitExceededException.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/model/Transaction.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/service/ScheduledTransferService.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/dto/TransactionDTO.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/model/enums/EnumOrigin.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/exceptions/InsufficientBalanceException.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/repository/UserRepository.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/dto/SigninRequest.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/model/enums/EnumTransactionType.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/utils/SavingsAccountValidate.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/exceptions/AccountNotFoundException.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/repository/SavingsAccountRepository.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/exceptions/TypeTransactionInvalidException.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/service/TransferService.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/model/enums/EnumTypeDocument.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/model/SavingsAccount.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/model/enums/EnumUserRole.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/service/TransactionService.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/service/CheckingAccountService.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/service/CustomUserDetailsService.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/model/ScheduledTransfer.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/service/HolidayService.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/dto/error/ErrorCamp.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/model/User.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/service/AuthenticationService.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/service/JWTService.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/service/AMLService.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/model/enums/AccountType.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/config/SecurityConfiguration.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/exceptions/PendingTransactionNotFoundException.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/Application.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/exceptions/InvalidCpfException.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/utils/CheckingAccountValidate.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/repository/TransactionScheduleRepository.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/controller/UserController.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/repository/AlertAMLRepository.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/config/InterestJobSchedulerConfig.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/exceptions/BankingHoursException.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/dto/JWTAuthenticationresponse.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/controller/ScheduledTransferController.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/controller/TransferController.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/service/UserService.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/exceptions/ScheduleDocClosedException.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/repository/CheckingAccountRepository.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/model/Account.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/exceptions/FrequentLargeDepositsException.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/dto/WithdrawalRequestDTO.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/service/SavingsAccountService.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/batch/config/BatchConfig.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/dto/SavingsAccountDTO.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/service/WithdrawalValidatorService.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/controller/TransactionController.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/exceptions/FraudDetectedException.java
+/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário/src/main/java/com/github/kiraruto/sistemaBancario/controller/AuthenticationController.java
