@@ -16,9 +16,11 @@ public record ScheduledTransferDTO(
         @NotNull(message = "Conta de destino é obrigatória")
         UUID accountReceive,
 
+        @NotNull(message = "O valor não pode ser nulo")
         @Positive(message = "Valor deve ser positivo")
         BigDecimal amount,
 
+        @NotNull(message = "A data do agendamento não pode ser nula")
         @Future(message = "Data deve ser futura")
         LocalDateTime scheduledDate,
 
