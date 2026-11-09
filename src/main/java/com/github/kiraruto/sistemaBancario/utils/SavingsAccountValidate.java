@@ -7,11 +7,11 @@ import com.github.kiraruto.sistemaBancario.dto.WithdrawalRequestDTO;
 import com.github.kiraruto.sistemaBancario.model.SavingsAccount;
 import com.github.kiraruto.sistemaBancario.repository.SavingsAccountRepository;
 import com.github.kiraruto.sistemaBancario.repository.UserRepository;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
-import java.util.Optional;
 import java.util.UUID;
 
 @Component
@@ -44,11 +44,16 @@ public class SavingsAccountValidate {
             throw new IllegalArgumentException("Não existe conta com este nome, email ou cpf");
         }
 
-        if (Boolean.FALSE.equals(userRepository.isActiveById(depositRequestDTO.accountSends()))) {
+        SavingsAccount sender = savingsAccountRepository.findById(depositRequestDTO.accountSends())
+                .orElseThrow(() -> new EntityNotFoundException("A conta de origem não existe"));
+        SavingsAccount receiver = savingsAccountRepository.findById(depositRequestDTO.accountReceive())
+                .orElseThrow(() -> new EntityNotFoundException("A conta de destino não existe"));
+
+        if (Boolean.FALSE.equals(userRepository.isActiveById(sender.getUser().getId()))) {
             throw new IllegalArgumentException("O usuário que enviou o dinheiro não está ativo");
         }
 
-        if (Boolean.FALSE.equals(userRepository.isActiveById(depositRequestDTO.accountReceive()))) {
+        if (Boolean.FALSE.equals(userRepository.isActiveById(receiver.getUser().getId()))) {
             throw new IllegalArgumentException("O usuário que recebeu o dinheiro não está ativo");
         }
 
@@ -80,8 +85,8 @@ public class SavingsAccountValidate {
     }
 
     public void validateSavingsAccountDeposit(WithdrawRequestDTO withdrawRequestDTO, UUID uuid) {
-        Optional<SavingsAccount> savingsAccount = savingsAccountRepository.findById(withdrawRequestDTO.idAccount());
-        var sa = savingsAccount.get();
+        SavingsAccount sa = savingsAccountRepository.findById(withdrawRequestDTO.idAccount())
+                .orElseThrow(() -> new EntityNotFoundException("A conta poupança não existe"));
 
         if (!withdrawRequestDTO.idAccount().equals(uuid)) {
             throw new IllegalArgumentException("O id da URL é diferente do id da requisição");
@@ -101,8 +106,8 @@ public class SavingsAccountValidate {
     }
 
     public SavingsAccount validateSavingsAccountWithdrawal(WithdrawalRequestDTO withdrawalRequestDTO) {
-        Optional<SavingsAccount> savingsAccount = savingsAccountRepository.findById(withdrawalRequestDTO.idAccount());
-        var sa = savingsAccount.get();
+        SavingsAccount sa = savingsAccountRepository.findById(withdrawalRequestDTO.idAccount())
+                .orElseThrow(() -> new EntityNotFoundException("A conta poupança não existe"));
 
         if (!savingsAccountRepository.existsByFullNameAndEmailAndCpf(sa.getFullName(), sa.getEmail(), sa.getCpf())) {
             throw new IllegalArgumentException("Não existe conta com este nome, email ou cpf");

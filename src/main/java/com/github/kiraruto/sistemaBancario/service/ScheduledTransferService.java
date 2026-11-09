@@ -1,6 +1,7 @@
 package com.github.kiraruto.sistemaBancario.service;
 
 import com.github.kiraruto.sistemaBancario.dto.ScheduledTransferDTO;
+import com.github.kiraruto.sistemaBancario.mapper.ScheduledTransferMapper;
 import com.github.kiraruto.sistemaBancario.model.ScheduledTransfer;
 import com.github.kiraruto.sistemaBancario.model.Transaction;
 import com.github.kiraruto.sistemaBancario.model.User;

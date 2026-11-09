@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS savings_account (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),                                  -- Identificador único da conta
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),        -- Identificador único da conta
     full_name VARCHAR(100) NOT NULL,                      -- Nome completo do titular
     date_birth DATE NOT NULL,                             -- Data de nascimento
     address VARCHAR(200) NOT NULL,                        -- Endereço

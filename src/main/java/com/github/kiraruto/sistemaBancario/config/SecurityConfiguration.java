@@ -27,9 +27,10 @@ import jakarta.servlet.http.HttpServletResponse;
 public class SecurityConfiguration {
 
     private static final String[] PUBLIC_PATHS = {
-            "/auth/**", // Corrigido se suas rotas públicas forem assim
+            "/auth/**",
+            "/v3/api-docs/**",
             "/swagger-ui/**",
-            "/v3/api-docs/**"
+            "/swagger-ui.html"
     };
 
     private static final String[] ADMIN_PATHS = {
@@ -37,7 +38,6 @@ public class SecurityConfiguration {
             "/users/**",
             "/users/{id}/admin",
             "/users/{id}/gerente",
-            "/users/{id}/cliente",
             "/users/{id}/disableUser",
             "/users/{id}/activateUser",
             "/transaction/**"
@@ -45,53 +45,53 @@ public class SecurityConfiguration {
 
     private static final String[] GERENTE_PATHS = {
             "/savings-accounts",
-            "/savings-accounts/**",
-            "/checking-accounts",
-            "/checking-accounts/**",
-            "/users/{id}/update",
-            "/schedule",
-            "/schedule/**"
+            "/checking-accounts"
     };
 
     private static final String[] CLIENTE_PATHS = {
             "/savings-accounts/{id}",
             "/savings-accounts/{id}/transactions",
-            "/savings-accounts/{id}/balance",
             "/checking-accounts/{id}",
-            "/checking-accounts/{id}/transactions",
-            "/checking-accounts/{id}/balance",
-            "/transaction/**"
+            "/checking-accounts/{id}/transactions"
     };
 
     private static final String[] ADMIN_GERENTE_PATHS = {
-            "/users/{id}/disableUser",
-            "/users/{id}/activateUser",
-            "/savings-accounts",
-            "/checking-accounts",
+            "/savings-accounts/**",
+            "/checking-accounts/**",
+            "/schedule",
             "/schedule/**"
     };
 
     private static final String[] ADMIN_CLIENTE_PATHS = {
             "/users/{id}/cliente",
-            "/transaction/**",
             "/savings-accounts/{id}/balance",
             "/checking-accounts/{id}/balance"
-    };
+    };            // Todos os perfis
+
 
     private static final String[] GERENTE_CLIENTE_PATHS = {
             "/savings-accounts/{id}/deposit",
-            "/savings-accounts/transfer/savingsAccount",
             "/savings-accounts/{id}/withdrawal",
+            "/savings-accounts/transfer/savingsAccount",
+
             "/checking-accounts/{id}/deposit",
-            "/checking-accounts/transfer/checkingAccount",
             "/checking-accounts/{id}/withdrawal",
-            "/schedule",
+            "/checking-accounts/transfer/checkingAccount",
+
             "/transfer"
     };
 
     private static final String[] ADMIN_GERENTE_CLIENTE_PATHS = {
-            "/users/{id}/update",
-            "/transaction/**"
+            "/users/{id}/update"
+    };
+
+    /**
+     * Rotas literais que precisam vir antes dos padroes "/{id}" para nao serem
+     * capturadas por eles (ex.: "/savings-accounts/{id}" casaria com "/savings-accounts/create").
+     */
+    private static final String[] ADMIN_GERENTE_CREATE_PATHS = {
+            "/savings-accounts/create",
+            "/checking-accounts/create"
     };
 
     private final JWTAuthenticationFilter jwtAuthenticationFilter;
@@ -105,13 +105,14 @@ public class SecurityConfiguration {
                 )
                 .authorizeHttpRequests(request -> request
                         .requestMatchers(PUBLIC_PATHS).permitAll()
-                        .requestMatchers(ADMIN_PATHS).hasAuthority(EnumUserRole.ADMIN.name())
-                        .requestMatchers(GERENTE_PATHS).hasAuthority(EnumUserRole.GERENTE.name())
-                        .requestMatchers(CLIENTE_PATHS).hasAuthority(EnumUserRole.CLIENTE.name())
-                        .requestMatchers(ADMIN_GERENTE_PATHS).hasAnyAuthority(EnumUserRole.ADMIN.name(), EnumUserRole.GERENTE.name())
+                        .requestMatchers(ADMIN_GERENTE_CLIENTE_PATHS).hasAnyAuthority(EnumUserRole.ADMIN.name(), EnumUserRole.GERENTE.name(), EnumUserRole.CLIENTE.name())
+                        .requestMatchers(ADMIN_GERENTE_CREATE_PATHS).hasAnyAuthority(EnumUserRole.ADMIN.name(), EnumUserRole.GERENTE.name())
                         .requestMatchers(ADMIN_CLIENTE_PATHS).hasAnyAuthority(EnumUserRole.ADMIN.name(), EnumUserRole.CLIENTE.name())
                         .requestMatchers(GERENTE_CLIENTE_PATHS).hasAnyAuthority(EnumUserRole.GERENTE.name(), EnumUserRole.CLIENTE.name())
-                        .requestMatchers(ADMIN_GERENTE_CLIENTE_PATHS).hasAnyAuthority(EnumUserRole.ADMIN.name(), EnumUserRole.GERENTE.name(), EnumUserRole.CLIENTE.name())
+                        .requestMatchers(CLIENTE_PATHS).hasAuthority(EnumUserRole.CLIENTE.name())
+                        .requestMatchers(ADMIN_PATHS).hasAuthority(EnumUserRole.ADMIN.name())
+                        .requestMatchers(GERENTE_PATHS).hasAuthority(EnumUserRole.GERENTE.name())
+                        .requestMatchers(ADMIN_GERENTE_PATHS).hasAnyAuthority(EnumUserRole.ADMIN.name(), EnumUserRole.GERENTE.name())
                         .anyRequest().authenticated())
                 .sessionManagement(maneger -> maneger.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider())

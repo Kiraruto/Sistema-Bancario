@@ -1,6 +1,10 @@
 package com.github.kiraruto.sistemaBancario.service;
+import com.github.kiraruto.sistemaBancario.service.WithdrawalValidatorService;
+import com.github.kiraruto.sistemaBancario.service.DepositValidatorService;
+import com.github.kiraruto.sistemaBancario.service.CheckingAccountService;
 
 import com.github.kiraruto.sistemaBancario.dto.*;
+import com.github.kiraruto.sistemaBancario.mapper.CheckingAccountMapper;
 import com.github.kiraruto.sistemaBancario.model.CheckingAccount;
 import com.github.kiraruto.sistemaBancario.model.Transaction;
 import com.github.kiraruto.sistemaBancario.model.User;
@@ -52,6 +56,15 @@ class CheckingAccountServiceTest {
     @Mock
     private TransactionValidate transactionValidate;
 
+    @Mock
+    private CheckingAccountMapper checkingAccountMapper;
+
+    @Mock
+    private DepositValidatorService depositValidatorService;
+
+    @Mock
+    private WithdrawalValidatorService withdrawalValidatorService;
+
     private final UUID accountId = UUID.fromString("9044acfb-37f0-47ee-a850-a94586c4180a");
     private CheckingAccount checkingAccount;
     private User user;
@@ -98,10 +111,11 @@ class CheckingAccountServiceTest {
                     user.getId(), "João", "joao@email.com", BigDecimal.valueOf(100));
 
             CheckingAccount newAccount = new CheckingAccount(dto);
-            newAccount.setId(checkingAccountRepository.findIdByFullNameAndBalance(dto.fullName(),dto.balance()));
+            newAccount.setId(accountId);
             newAccount.setUser(user);
 
             when(userRepository.findById(dto.userId())).thenReturn(Optional.of(user));
+            when(checkingAccountMapper.toEntity(dto)).thenReturn(newAccount);
             when(checkingAccountRepository.save(any(CheckingAccount.class))).thenReturn(newAccount);
             when(checkingAccountRepository.findByCpfAndEmail(dto.cpf(), dto.email()))
                     .thenReturn(Optional.of(newAccount));
@@ -252,7 +266,7 @@ class CheckingAccountServiceTest {
 
             checkingAccountService.deposit(accountId, request);
 
-            assertEquals(BigDecimal.valueOf(900), checkingAccount.getBalance());
+            assertEquals(BigDecimal.valueOf(1100), checkingAccount.getBalance());
             verify(transactionRepository).save(any(Transaction.class));
             verify(checkingAccountRepository).save(checkingAccount);
         }
@@ -330,8 +344,6 @@ class CheckingAccountServiceTest {
 
             when(checkingAccountValidate.validateCheckingAccountWithdrawal(request))
                     .thenReturn(checkingAccount);
-            when(checkingAccountRepository.findById(accountId))
-                    .thenReturn(Optional.of(checkingAccount));
 
             checkingAccountService.withdrawal(accountId, request);
 

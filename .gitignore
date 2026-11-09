@@ -1,0 +1,63 @@
+# ============================================================
+# Java / Maven
+# ============================================================
+target/
+build/
+out/
+bin/
+*.class
+*.war
+*.ear
+*.log
+hs_err_pid*
+replay_pid*
+
+# ============================================================
+# IDEs
+# ============================================================
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.project
+.classpath
+.factorypath
+.apt_generated/
+.sts4-cache/
+
+# ============================================================
+# Sistema operacional
+# ============================================================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ============================================================
+# Configuração local e segredos
+# ============================================================
+# O application.yml real fica apenas na sua máquina.
+# Use o application.yml.example como modelo.
+src/main/resources/application.yml
+src/main/resources/application-local.yml
+src/main/resources/application-local.yaml
+src/main/resources/application-local.properties
+src/main/resources/application-prod.yml
+src/main/resources/application-prod.yaml
+src/main/resources/application-prod.properties
+
+# Variáveis de ambiente
+.env
+.env.*
+!.env.example
+
+# ============================================================
+# Ferramentas
+# ============================================================
+.mvn/timing.properties
+.flattened-pom.xml
+dependency-reduced-pom.xml
+*.swp
+*.swo
+*~

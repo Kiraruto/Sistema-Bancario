@@ -6,8 +6,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
+import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.job.builder.JobBuilder;
-import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.item.ItemProcessor;
@@ -15,8 +15,6 @@ import org.springframework.batch.item.data.RepositoryItemWriter;
 import org.springframework.batch.item.support.ListItemReader;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.scheduling.annotation.EnableScheduling;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import java.math.BigDecimal;
@@ -25,20 +23,12 @@ import java.util.List;
 
 @Configuration
 @EnableBatchProcessing
-@EnableScheduling
 @RequiredArgsConstructor
 public class BatchConfig {
 
     private final JobRepository jobRepository;
     private final PlatformTransactionManager transactionManager;
     private final SavingsAccountRepository savingsAccountRepository;
-    private final JobLauncher jobLauncher;
-
-    // Agendamento diário às 02:00 da manhã
-    @Scheduled(cron = "0 0 2 * * *")
-    public void runInterestCalculationJob() throws Exception {
-        jobLauncher.run(interestCalculationJob(), new org.springframework.batch.core.JobParameters());
-    }
 
     @Bean
     public Job interestCalculationJob() {
@@ -58,6 +48,7 @@ public class BatchConfig {
     }
 
     @Bean
+    @StepScope
     public ListItemReader<SavingsAccount> interestReader() {
         List<SavingsAccount> contas = savingsAccountRepository.findAll();
         return new ListItemReader<>(contas);
@@ -66,7 +57,10 @@ public class BatchConfig {
     @Bean
     public ItemProcessor<SavingsAccount, SavingsAccount> interestProcessor() {
         return conta -> {
-            BigDecimal feeMonthly = new BigDecimal("0.005");
+            BigDecimal feeMonthly = conta.getInterestRate();
+            if (feeMonthly == null) {
+                feeMonthly = new BigDecimal("0.005");
+            }
             BigDecimal rateDaily = feeMonthly.divide(new BigDecimal("30"), 10, RoundingMode.HALF_EVEN);
             BigDecimal saldo = conta.getBalance();
             BigDecimal jurosDoDia = saldo.multiply(rateDaily).setScale(2, RoundingMode.HALF_EVEN);

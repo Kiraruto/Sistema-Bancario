@@ -1,9 +1,12 @@
 package com.github.kiraruto.sistemaBancario.service;
 
 import com.github.kiraruto.sistemaBancario.dto.*;
+import com.github.kiraruto.sistemaBancario.exceptions.InsufficientBalanceException;
+import com.github.kiraruto.sistemaBancario.mapper.CheckingAccountMapper;
 import com.github.kiraruto.sistemaBancario.model.CheckingAccount;
 import com.github.kiraruto.sistemaBancario.model.Transaction;
 import com.github.kiraruto.sistemaBancario.model.User;
+import com.github.kiraruto.sistemaBancario.model.enums.EnumStatus;
 import com.github.kiraruto.sistemaBancario.model.enums.EnumTransactionType;
 import com.github.kiraruto.sistemaBancario.repository.CheckingAccountRepository;
 import com.github.kiraruto.sistemaBancario.repository.TransactionRepository;
@@ -19,6 +22,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -39,6 +43,7 @@ public class CheckingAccountService {
     private final UserRepository userRepository;
     private final WithdrawalValidatorService withdrawalValidatorService;
     private final DepositValidatorService depositValidatorService;
+    private final CheckingAccountMapper checkingAccountMapper;
     private final Map<UUID, ReentrantLock> locks = new ConcurrentHashMap<>();
 
     private ReentrantLock getLock(UUID uuid) {
@@ -49,13 +54,14 @@ public class CheckingAccountService {
         return checkingAccountRepository.findAll();
     }
 
+    @Transactional
     public CheckingAccount createAccount(CheckingAccountDTO checkingAccountDTO) {
         checkingAccountValidate.validateCreateAccountChecking(checkingAccountDTO);
 
         User user = userRepository.findById(checkingAccountDTO.userId())
                 .orElseThrow(() -> new IllegalArgumentException("User not found with ID: " + checkingAccountDTO.userId()));
 
-        CheckingAccount checkingAccount = new CheckingAccount(checkingAccountDTO);
+        CheckingAccount checkingAccount = checkingAccountMapper.toEntity(checkingAccountDTO);
         checkingAccount.setUser(user);
 
         checkingAccountRepository.save(checkingAccount);
@@ -69,7 +75,7 @@ public class CheckingAccountService {
 
     public CheckingAccount getById(UUID id) {
         return checkingAccountRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("O id da transação não foi encontrado"));
+                .orElseThrow(() -> new IllegalArgumentException("O id da conta não foi encontrado"));
     }
 
     public List<TransactionDTO> getTransactions(UUID uuid) {
@@ -123,6 +129,7 @@ public class CheckingAccountService {
         }
     }
 
+    @Transactional
     public void transferCheckingAccount(@Valid DepositRequestDTO depositRequestDTO) {
         checkingAccountValidate.validateDepositChecking(depositRequestDTO);
 
@@ -162,7 +169,13 @@ public class CheckingAccountService {
             checkingAccountRepository.save(ch1);
             checkingAccountRepository.save(ch2);
 
-            Transaction transaction = new Transaction(depositRequestDTO, transactionValidate);
+            Transaction transaction = new Transaction();
+            transaction.setAccountSends(senderId);
+            transaction.setAccountReceive(receiverId);
+            transaction.setTransactionType(EnumTransactionType.TRANSFERENCIA);
+            transaction.setAmount(depositRequestDTO.balance());
+            transaction.setTransactionDate(LocalDateTime.now(ZoneId.of("America/Sao_Paulo")));
+            transaction.setStatus(EnumStatus.CONCLUIDA);
             transaction.setDescription("Transferência entre contas");
             transactionRespository.save(transaction);
         } finally {
@@ -193,7 +206,7 @@ public class CheckingAccountService {
             CheckingAccount checkingAccount = checkingAccountValidate.validateCheckingAccountWithdrawal(withdrawalRequestDTO);
 
             if (withdrawalRequestDTO.amount().compareTo(checkingAccount.getBalance()) > 0) {
-                throw new IllegalArgumentException("Saldo insuficiente para saque");
+                throw new InsufficientBalanceException("Saldo insuficiente para saque");
             }
 
             withdrawalValidatorService.validateWithdrawalLimit(uuid, withdrawalRequestDTO.amount());
@@ -201,7 +214,7 @@ public class CheckingAccountService {
             Transaction transaction = new Transaction(withdrawalRequestDTO);
             transaction.setTransactionType(EnumTransactionType.SAQUE);
             transaction.setDescription("Saque Conta Corrente");
-            transaction.setTransactionDate(LocalDateTime.now());
+            transaction.setTransactionDate(LocalDateTime.now(ZoneId.of("America/Sao_Paulo")));
             transaction.setAccountReceive(withdrawalRequestDTO.idAccount());
             transaction.setAccountSends(withdrawalRequestDTO.idAccount());
             transactionRespository.save(transaction);

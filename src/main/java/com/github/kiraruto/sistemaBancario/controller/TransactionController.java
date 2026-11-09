@@ -1,12 +1,14 @@
 package com.github.kiraruto.sistemaBancario.controller;
 
 import com.github.kiraruto.sistemaBancario.model.Transaction;
+import com.github.kiraruto.sistemaBancario.service.ExtractService;
 import com.github.kiraruto.sistemaBancario.service.TransactionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
 
 import static com.github.kiraruto.sistemaBancario.utils.VerifyUUID.validateUUID;
 
@@ -16,8 +18,10 @@ import static com.github.kiraruto.sistemaBancario.utils.VerifyUUID.validateUUID;
 public class TransactionController {
 
     private final TransactionService transactionService;
+    private final ExtractService extractService;
 
-    @GetMapping("/{id}")
+
+    @GetMapping("/pendente/{id}")
     public ResponseEntity<List<Transaction>> getAllTransactionPendente(@PathVariable("id") String id) {
         List<Transaction> transactions = transactionService.getAllTransactionPendente(validateUUID(id));
         return ResponseEntity.ok(transactions);
@@ -34,4 +38,10 @@ public class TransactionController {
         transactionService.failure(validateUUID(id));
         return ResponseEntity.ok().build();
     }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<List<Transaction>> getExtract(@PathVariable("id") String id) {
+        List<Transaction> extract = extractService.getallById(validateUUID(id));
+        return ResponseEntity.ok(extract);
+    };
 }

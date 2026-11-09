@@ -19,9 +19,9 @@ public record DepositRequestDTO(@NotBlank(message = "O nome completo não pode s
                                 BigDecimal balance,
                                 @NotNull(message = "A origem não pode ser nula")
                                 EnumOrigin origin,
-                                @NotBlank(message = "O id da conta que manda o dinheiro não pode estar vazio")
+                                @NotNull(message = "O id da conta que manda o dinheiro não pode estar vazio")
                                 UUID accountSends,
-                                @NotBlank(message = "O id da conta que recebe o dinheiro não pode estar vazio")
+                                @NotNull(message = "O id da conta que recebe o dinheiro não pode estar vazio")
                                 UUID accountReceive,
                                 String description,
                                 @NotNull(message = "O id do usuario não pode ser nulo")

@@ -2,10 +2,12 @@ package com.github.kiraruto.sistemaBancario.utils;
 
 import com.github.kiraruto.sistemaBancario.dto.DepositRequestDTO;
 import com.github.kiraruto.sistemaBancario.dto.WithdrawRequestDTO;
+import com.github.kiraruto.sistemaBancario.exceptions.BankingHoursException;
 import com.github.kiraruto.sistemaBancario.exceptions.DocLimitExceededException;
 import com.github.kiraruto.sistemaBancario.exceptions.InvalidDepositOriginException;
 import com.github.kiraruto.sistemaBancario.exceptions.ScheduleDocClosedException;
 import com.github.kiraruto.sistemaBancario.model.SavingsAccount;
+import com.github.kiraruto.sistemaBancario.model.enums.EnumOrigin;
 import com.github.kiraruto.sistemaBancario.repository.SavingsAccountRepository;
 import com.github.kiraruto.sistemaBancario.service.AMLService;
 import com.github.kiraruto.sistemaBancario.service.BankHoursService;
@@ -14,7 +16,6 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Optional;
 
 @Component
@@ -26,7 +27,9 @@ public class DepositValidator {
     private final SavingsAccountRepository savingsAccountRepository;
 
     public void validateTed() {
-        bankHoursService.isTedTimeValid(LocalDateTime.now());
+        if (!bankHoursService.isTedTimeValid(LocalDateTime.now())) {
+            throw new BankingHoursException("TED só pode ser feito em dias úteis e fora de feriados.");
+        }
     }
 
     public void validateDoc(DepositRequestDTO request) {
@@ -49,8 +52,8 @@ public class DepositValidator {
             );
         }
 
-        if (!List.of("AGENCIA", "ATM").contains(request.origin())) {
-            throw new InvalidDepositOriginException("Origem do depósito inválida. Permitido apenas: AGENCIA ou ATM.");
+        if (request.origin() != EnumOrigin.DINHEIRO_FISICO) {
+            throw new InvalidDepositOriginException("Origem do depósito inválida. Permitido apenas: DINHEIRO_FISICO.");
         }
     }
 
@@ -67,8 +70,8 @@ public class DepositValidator {
             );
         }
 
-        if (!List.of("AGENCIA", "ATM").contains(withdrawRequestDTO.enumOrigin())) {
-            throw new InvalidDepositOriginException("Origem do depósito inválida. Permitido apenas: AGENCIA ou ATM.");
+        if (withdrawRequestDTO.enumOrigin() != EnumOrigin.DINHEIRO_FISICO) {
+            throw new InvalidDepositOriginException("Origem do depósito inválida. Permitido apenas: DINHEIRO_FISICO.");
         }
     }
 

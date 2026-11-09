@@ -13,8 +13,7 @@ public class BankHoursService {
     private final HolidayService holidayService;
 
     public boolean isTedTimeValid(LocalDateTime dataHora) {
-        return !isWeekend(dataHora) &&
-                !isNationalHoliday(dataHora);
+        return !isWeekend(dataHora) && !isNationalHoliday(dataHora);
     }
 
     private boolean isWeekend(LocalDateTime dataHora) {

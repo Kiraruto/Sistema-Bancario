@@ -4,12 +4,10 @@ import com.github.kiraruto.sistemaBancario.service.TransactionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -50,7 +48,7 @@ class TransactionControllerTest {
             uuidMock.when(() -> validateUUID(transactionIdStr)).thenReturn(transactionId);
             doNothing().when(transactionService).completed(transactionId);
 
-            mockMvc.perform(put("/transaction/{id}/complete", transactionIdStr)
+            mockMvc.perform(put("/transaction/full/{id}", transactionIdStr)
                             .contentType(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk());
 
@@ -65,7 +63,7 @@ class TransactionControllerTest {
             uuidMock.when(() -> validateUUID(transactionIdStr)).thenReturn(transactionId);
             doNothing().when(transactionService).failure(transactionId);
 
-            mockMvc.perform(put("/transaction/{id}/failure", transactionIdStr)
+            mockMvc.perform(put("/transaction/failure/{id}", transactionIdStr)
                             .contentType(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk());
 

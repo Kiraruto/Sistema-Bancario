@@ -2,6 +2,7 @@ package com.github.kiraruto.sistemaBancario.service;
 
 import com.github.kiraruto.sistemaBancario.model.enums.EnumTransactionType;
 import com.github.kiraruto.sistemaBancario.repository.TransactionRepository;
+import com.github.kiraruto.sistemaBancario.utils.BankLimits;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -30,7 +31,7 @@ public class WithdrawalValidatorService {
 
         BigDecimal totalWithCurrent = totalWithdrawnLast24Hours.add(withdrawalAmount);
 
-        if (totalWithCurrent.compareTo(BigDecimal.valueOf(2000)) > 0) {
+        if (totalWithCurrent.compareTo(BankLimits.LIMIT_SAKE_24H) > 0){
             throw new IllegalArgumentException("Limite de saque das últimas 24 horas excedido (R$ 2.000,00)");
         }
     }

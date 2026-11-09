@@ -1,6 +1,8 @@
 package com.github.kiraruto.sistemaBancario.service;
+import com.github.kiraruto.sistemaBancario.service.SavingsAccountService;
 
 import com.github.kiraruto.sistemaBancario.dto.*;
+import com.github.kiraruto.sistemaBancario.mapper.SavingsAccountMapper;
 import com.github.kiraruto.sistemaBancario.model.SavingsAccount;
 import com.github.kiraruto.sistemaBancario.model.Transaction;
 import com.github.kiraruto.sistemaBancario.model.User;
@@ -51,6 +53,9 @@ class SavingsAccountServiceTest {
     @Mock
     private TransactionValidate transactionValidate;
 
+    @Mock
+    private SavingsAccountMapper savingsAccountMapper;
+
     private final UUID accountId = UUID.randomUUID();
     private SavingsAccount savingsAccount;
     private User user;
@@ -90,10 +95,11 @@ class SavingsAccountServiceTest {
             );
 
             SavingsAccount newAccount = new SavingsAccount(dto);
-            newAccount.setId(savingsAccountRepository.findIdByFullNameAndBalance(dto.fullName(),dto.balance()));
+            newAccount.setId(accountId);
             newAccount.setUser(user);
 
             when(userRepository.findById(dto.userId())).thenReturn(Optional.of(user));
+            when(savingsAccountMapper.toEntity(dto)).thenReturn(newAccount);
             when(savingsAccountRepository.save(any(SavingsAccount.class))).thenReturn(newAccount);
             when(savingsAccountRepository.findByCpfAndEmail(dto.cpf(), dto.email()))
                     .thenReturn(Optional.of(newAccount));
@@ -150,7 +156,7 @@ class SavingsAccountServiceTest {
         void shouldThrowWhenAccountNotFound() {
             when(savingsAccountRepository.findById(accountId)).thenReturn(Optional.empty());
 
-            assertThrows(IllegalArgumentException.class, () -> {
+            assertThrows(jakarta.persistence.EntityNotFoundException.class, () -> {
                 savingsAccountService.getById(accountId);
             });
         }
@@ -193,12 +199,12 @@ class SavingsAccountServiceTest {
             WithdrawRequestDTO request = new WithdrawRequestDTO(
                     accountId, BigDecimal.valueOf(100), EnumOrigin.DOC);
 
-//            when(savingsAccountValidate.validateSavingsAccountWithdraw(request))
-//                    .thenReturn(savingsAccount);
-//            when(savingsAccountRepository.findById(accountId))
-//                    .thenReturn(Optional.of(savingsAccount));
-//
-//            savingsAccountService.deposit(accountId, request);
+            when(savingsAccountRepository.findById(accountId))
+                    .thenReturn(Optional.of(savingsAccount));
+            when(transactionRepository.findLasts24Hours(eq(accountId), any()))
+                    .thenReturn(List.of());
+
+            savingsAccountService.deposit(accountId, request);
 
             assertEquals(BigDecimal.valueOf(1100), savingsAccount.getBalance());
             verify(transactionRepository).save(any(Transaction.class));
@@ -216,8 +222,6 @@ class SavingsAccountServiceTest {
 
             when(savingsAccountValidate.validateSavingsAccountWithdrawal(request))
                     .thenReturn(savingsAccount);
-            when(savingsAccountRepository.findById(accountId))
-                    .thenReturn(Optional.of(savingsAccount));
 
             savingsAccountService.withdrawal(accountId, request);
 

@@ -2,6 +2,7 @@ package com.github.kiraruto.sistemaBancario.service;
 
 import com.github.kiraruto.sistemaBancario.dto.*;
 import com.github.kiraruto.sistemaBancario.exceptions.DepositLimitExceededException;
+import com.github.kiraruto.sistemaBancario.mapper.SavingsAccountMapper;
 import com.github.kiraruto.sistemaBancario.model.AlertAML;
 import com.github.kiraruto.sistemaBancario.model.SavingsAccount;
 import com.github.kiraruto.sistemaBancario.model.Transaction;
@@ -12,13 +13,16 @@ import com.github.kiraruto.sistemaBancario.repository.AlertAMLRepository;
 import com.github.kiraruto.sistemaBancario.repository.SavingsAccountRepository;
 import com.github.kiraruto.sistemaBancario.repository.TransactionRepository;
 import com.github.kiraruto.sistemaBancario.repository.UserRepository;
+import com.github.kiraruto.sistemaBancario.utils.BankLimits;
 import com.github.kiraruto.sistemaBancario.utils.SavingsAccountValidate;
 import com.github.kiraruto.sistemaBancario.utils.TransactionValidate;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -41,6 +45,7 @@ public class SavingsAccountService {
     private final UserRepository userRepository;
     private final AuditService auditService;
     private final AlertAMLRepository alertAMLRepository;
+    private final SavingsAccountMapper savingsAccountMapper;
     private final ConcurrentHashMap<UUID, ReentrantLock> locks = new ConcurrentHashMap<>();
 
     private ReentrantLock getLock(UUID id) {
@@ -53,7 +58,7 @@ public class SavingsAccountService {
 
     public SavingsAccount getById(UUID id) {
         return savingsAccountRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("O Id não existe!"));
+                .orElseThrow(() -> new EntityNotFoundException("O Id não existe!"));
     }
 
     public SavingsAccount createAccount(SavingsAccountDTO savingsAccountDTO) {
@@ -62,7 +67,7 @@ public class SavingsAccountService {
         User user = userRepository.findById(savingsAccountDTO.userId())
                 .orElseThrow(() -> new IllegalArgumentException("User not found with ID: " + savingsAccountDTO.userId()));
 
-        SavingsAccount savingsAccount = new SavingsAccount(savingsAccountDTO);
+        SavingsAccount savingsAccount = savingsAccountMapper.toEntity(savingsAccountDTO);
         savingsAccount.setUser(user);
 
         savingsAccountRepository.save(savingsAccount);
@@ -74,6 +79,7 @@ public class SavingsAccountService {
         return savingsAccount;
     }
 
+    @Transactional
     public void transferSavingsAccount(DepositRequestDTO depositRequestDTO) {
         UUID senderId = depositRequestDTO.accountSends();
         UUID receiverId = depositRequestDTO.accountReceive();
@@ -110,7 +116,13 @@ public class SavingsAccountService {
             savingsAccountRepository.save(sa1);
             savingsAccountRepository.save(sa2);
 
-            Transaction transaction = new Transaction(depositRequestDTO, transactionValidate);
+            Transaction transaction = new Transaction();
+            transaction.setAccountSends(senderId);
+            transaction.setAccountReceive(receiverId);
+            transaction.setTransactionType(EnumTransactionType.TRANSFERENCIA);
+            transaction.setAmount(depositRequestDTO.balance());
+            transaction.setTransactionDate(LocalDateTime.now(ZoneId.of("America/Sao_Paulo")));
+            transaction.setStatus(EnumStatus.CONCLUIDA);
             transaction.setDescription("Transferência entre Contas Poupança");
             transactionRespository.save(transaction);
         } finally {
@@ -208,12 +220,12 @@ public class SavingsAccountService {
 
             if (valorDeposito.compareTo(BigDecimal.valueOf(10000)) > 0) {
                 Transaction fraudTransaction = new Transaction(withdrawRequestDTO, transactionValidate, EnumStatus.PENDENTE);
-                fraudTransaction.setDescription("Depósito acima de R$ 10.000 - Verificação manual");
+                fraudTransaction.setDescription("Depósito acima de R$ 9.999 - Verificação manual");
                 transactionRespository.save(fraudTransaction);
 
                 alertAMLRepository.save(new AlertAML(fraudTransaction, savingsAccount.getCpf()));
 
-                throw new DepositLimitExceededException("O valor do depósito excede o limite permitido de R$ 50.000");
+                throw new DepositLimitExceededException("O valor do depósito excede o limite permitido de R$ 10.000");
             }
 
             Transaction transaction = new Transaction(withdrawRequestDTO, transactionValidate);
@@ -238,7 +250,7 @@ public class SavingsAccountService {
                 throw new IllegalArgumentException("Saldo insuficiente");
             }
 
-            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime now = LocalDateTime.now(ZoneId.of("America/Sao_Paulo"));
             LocalDateTime twentyFourHoursAgo = now.minusHours(24);
 
             BigDecimal totalWithdrawnLast24Hours = transactionRespository
@@ -250,7 +262,7 @@ public class SavingsAccountService {
 
             BigDecimal totalWithCurrent = totalWithdrawnLast24Hours.add(withdrawalRequestDTO.amount());
 
-            if (totalWithCurrent.compareTo(BigDecimal.valueOf(2000)) > 0) {
+            if (totalWithCurrent.compareTo(BankLimits.LIMIT_SAKE_24H) > 0) {
                 throw new IllegalArgumentException("Limite de saque das últimas 24 horas excedido (R$ 2.000,00)");
             }
 

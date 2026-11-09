@@ -38,11 +38,15 @@ public class AlertAML {
     private String observacoes;
 
     public AlertAML(Transaction transaction, String cpf) {
-        this.accountId = transaction.getId().toString();
+        UUID accountId = transaction.getAccountReceive() != null
+                ? transaction.getAccountReceive()
+                : transaction.getAccountSends();
+
+        this.accountId = accountId != null ? accountId.toString() : null;
         this.amount = transaction.getAmount();
         this.date = LocalDateTime.now();
         this.cpf = cpf;
         this.status = EnumStatusAlert.EM_ANALISE;
-        this.observacoes = "Transição pendente da conta" + transaction.getId();
+        this.observacoes = "Transição pendente da conta " + this.accountId;
     }
 }

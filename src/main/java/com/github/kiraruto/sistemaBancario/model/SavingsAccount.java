@@ -16,7 +16,6 @@ import java.util.UUID;
 
 //poupança
 @Data
-@NoArgsConstructor
 @AllArgsConstructor
 @Entity
 @Table(name = "savings_account")
@@ -35,6 +34,10 @@ public class SavingsAccount extends Account {
     @JoinColumn(name = "user_id", nullable = false)
     @JsonIgnore
     private User user;
+
+    public SavingsAccount() {
+
+    }
 
     public SavingsAccount(String fullName, LocalDate dateBirth, String address, EnumMaritalStatus maritalStatus,
                           String phoneNumber, String email, String cpf, EnumTypeDocument rgOrCnh,

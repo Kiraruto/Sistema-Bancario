@@ -23,7 +23,7 @@ public class JWTService {
     public String generateToken(UserDetails userDetails) {
         return Jwts.builder().setSubject(userDetails.getUsername())
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(generateExpirationDate(1000 * 60 * 24)) // 24 minutos
+                .setExpiration(generateExpirationDate(1000 * 60 * 30)) // 24 minutos
                 .signWith(getSignKey(), SignatureAlgorithm.HS256)
                 .compact();
     }

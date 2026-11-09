@@ -33,4 +33,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID> 
                                                                  @Param("transactionType") EnumTransactionType transactionType,
                                                                  @Param("start") LocalDateTime start,
                                                                  @Param("end") LocalDateTime end);
+
+    @Query("SELECT t FROM Transaction t WHERE t.accountSends = :id OR t.accountReceive = :id")
+    List<Transaction> findAllByAccount(@Param("id") UUID id);
 }

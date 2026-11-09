@@ -69,7 +69,7 @@ public class UserService {
 
         user.setEmail(userDTO.email());
         user.setUsername(userDTO.username());
-        user.setPassword(userDTO.password());
+        user.setPassword(passwordEncoder.encode(userDTO.password()));
         user.setActive(true);
 
         return userRepository.save(user);

@@ -64,13 +64,6 @@ class SavingsAccountControllerTest {
         testUser.setActive(true);
         testUser = userRepository.save(testUser);
 
-        // Criar conta de teste
-        testAccount = new SavingsAccount();
-        testAccount.setUser(testUser);
-        testAccount.setBalance(BigDecimal.valueOf(1000));
-        testAccount.setIsActive(true);
-        testAccount = savingsAccountRepository.save(testAccount);
-
         // Configurar DTO válido
         validAccountDTO = new SavingsAccountDTO(
                 "Fulano de Tal",
@@ -79,41 +72,33 @@ class SavingsAccountControllerTest {
                 EnumMaritalStatus.SOLTEIRO,
                 "11999999999",
                 "fulano@example.com",
-                "12345678901",
+                "52998224725",
                 EnumTypeDocument.RG,
                 "12345678",
                 BigDecimal.valueOf(500),
                 testUser.getId()
         );
+
+        // Criar conta de teste com todos os campos obrigatórios
+        testAccount = new SavingsAccount(validAccountDTO);
+        testAccount.setUser(testUser);
+        testAccount.setBalance(BigDecimal.valueOf(1000));
+        testAccount = savingsAccountRepository.save(testAccount);
     }
 
     @Test
     @WithMockUser(authorities = "GERENTE")
     void getAllSavingsAccount_ShouldReturnAllAccounts() throws Exception {
-        UUID accountId = UUID.randomUUID();
-
-        SavingsAccount mockAccount = new SavingsAccount();
-        mockAccount.setId(accountId);
-        mockAccount.setFullName("João da Silva");
-        mockAccount.setCpf("12345678900");
-        mockAccount.setBalance(BigDecimal.valueOf(1000.0));
-        mockAccount.setIsActive(true);
-
-        List<SavingsAccount> accounts = List.of(mockAccount);
-
-        when(savingsAccountRepository.findAll()).thenReturn(accounts);
-
         mockMvc.perform(get("/savings-accounts"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(accountId.toString()))
-                .andExpect(jsonPath("$[0].accountNumber").value("123456"))
+                .andExpect(jsonPath("$[0].id").value(testAccount.getId().toString()))
                 .andExpect(jsonPath("$[0].balance").value(1000.0))
-                .andExpect(jsonPath("$[0].fullName").value("João da Silva"))
-                .andExpect(jsonPath("$[0].cpf").value("12345678900"));
+                .andExpect(jsonPath("$[0].fullName").value("Fulano de Tal"))
+                .andExpect(jsonPath("$[0].cpf").value("52998224725"));
     }
 
     @Test
-    @WithMockUser(roles = "GERENTE")
+    @WithMockUser(authorities = "CLIENTE")
     void getById_WithValidId_ShouldReturnAccount() throws Exception {
         mockMvc.perform(get("/savings-accounts/" + testAccount.getId()))
                 .andExpect(status().isOk())
@@ -121,7 +106,7 @@ class SavingsAccountControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = "GERENTE")
+    @WithMockUser(authorities = "CLIENTE")
     void getById_WithInvalidId_ShouldReturnNotFound() throws Exception {
         UUID invalidId = UUID.randomUUID();
         mockMvc.perform(get("/savings-accounts/" + invalidId))
@@ -129,14 +114,14 @@ class SavingsAccountControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = "GERENTE")
+    @WithMockUser(authorities = "CLIENTE")
     void getTransactions_ShouldReturnTransactions() throws Exception {
         mockMvc.perform(get("/savings-accounts/" + testAccount.getId() + "/transactions"))
                 .andExpect(status().isOk());
     }
 
     @Test
-    @WithMockUser(roles = "GERENTE")
+    @WithMockUser(authorities = "CLIENTE")
     void getBalance_ShouldReturnBalance() throws Exception {
         mockMvc.perform(get("/savings-accounts/" + testAccount.getId() + "/balance"))
                 .andExpect(status().isOk())
@@ -144,17 +129,31 @@ class SavingsAccountControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = "GERENTE")
+    @WithMockUser(authorities = "GERENTE")
     void createAccountSa_WithValidData_ShouldCreateAccount() throws Exception {
+        SavingsAccountDTO newAccountDTO = new SavingsAccountDTO(
+                "Ana Silva",
+                LocalDate.of(1985, 5, 5),
+                "Avenida Nova, 456",
+                EnumMaritalStatus.CASADO,
+                "11888888888",
+                "ana@example.com",
+                "11144477735",
+                EnumTypeDocument.CNH,
+                "87654321",
+                BigDecimal.valueOf(500),
+                testUser.getId()
+        );
+
         mockMvc.perform(post("/savings-accounts/create")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(validAccountDTO)))
+                        .content(objectMapper.writeValueAsString(newAccountDTO)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").exists());
     }
 
     @Test
-    @WithMockUser(roles = "GERENTE")
+    @WithMockUser(authorities = "GERENTE")
     void createAccountSa_WithInvalidData_ShouldReturnBadRequest() throws Exception {
         SavingsAccountDTO invalidDTO = new SavingsAccountDTO(
                 "", // Nome vazio
@@ -173,11 +172,11 @@ class SavingsAccountControllerTest {
         mockMvc.perform(post("/savings-accounts/create")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(invalidDTO)))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isUnprocessableEntity());
     }
 
     @Test
-    @WithMockUser(roles = "GERENTE")
+    @WithMockUser(authorities = "GERENTE")
     void deposit_ShouldIncreaseBalance() throws Exception {
         WithdrawRequestDTO depositDTO = new WithdrawRequestDTO(
                 testAccount.getId(),
@@ -197,19 +196,31 @@ class SavingsAccountControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = "GERENTE")
+    @WithMockUser(authorities = "GERENTE")
     void transferRequest_ShouldTransferBetweenAccounts() throws Exception {
-        // Criar segunda conta
-        SavingsAccount secondAccount = new SavingsAccount();
+        // Criar segunda conta com todos os campos obrigatórios
+        SavingsAccountDTO secondAccountDTO = new SavingsAccountDTO(
+                "Ciclano de Tal",
+                LocalDate.of(1985, 5, 5),
+                "Avenida Secundária, 456",
+                EnumMaritalStatus.CASADO,
+                "11777777777",
+                "ciclano@example.com",
+                "12345678909",
+                EnumTypeDocument.CNH,
+                "11223344",
+                BigDecimal.valueOf(500),
+                testUser.getId()
+        );
+        SavingsAccount secondAccount = new SavingsAccount(secondAccountDTO);
         secondAccount.setUser(testUser);
         secondAccount.setBalance(BigDecimal.valueOf(500));
-        secondAccount.setIsActive(true);
         secondAccount = savingsAccountRepository.save(secondAccount);
 
         DepositRequestDTO transferDTO = new DepositRequestDTO(
                 "Fulano de Tal",
                 "fulano@example.com",
-                "12345678901",
+                "52998224725",
                 BigDecimal.valueOf(100),
                 EnumOrigin.DINHEIRO_FISICO,
                 testAccount.getId(),
@@ -231,7 +242,7 @@ class SavingsAccountControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
+    @WithMockUser(authorities = "ADMIN")
     void disableSavingsAccount_ShouldDeactivateAccount() throws Exception {
         mockMvc.perform(put("/savings-accounts/" + testAccount.getId() + "/disableSavingsAccount"))
                 .andExpect(status().isNoContent());
@@ -240,7 +251,7 @@ class SavingsAccountControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
+    @WithMockUser(authorities = "ADMIN")
     void activateSavingsAccount_ShouldActivateAccount() throws Exception {
         // Primeiro desativar a conta
         testAccount.setIsActive(false);
@@ -253,7 +264,7 @@ class SavingsAccountControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
+    @WithMockUser(authorities = "GERENTE")
     void withdrawal_ShouldDecreaseBalance() throws Exception {
         WithdrawalRequestDTO withdrawalDTO = new WithdrawalRequestDTO(
                 testAccount.getId(),
@@ -272,7 +283,7 @@ class SavingsAccountControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = "USER")
+    @WithMockUser(authorities = "USER")
     void accessWithUserRole_ShouldBeForbidden() throws Exception {
         mockMvc.perform(get("/savings-accounts"))
                 .andExpect(status().isForbidden());

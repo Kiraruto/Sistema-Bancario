@@ -18,7 +18,6 @@ import java.util.List;
 import java.util.UUID;
 
 @Data
-@NoArgsConstructor
 @AllArgsConstructor
 @Entity
 @Table(name = "users")
@@ -37,6 +36,7 @@ public class User implements UserDetails {
     private String lastName; // ultimo nome
 
     @Column(name = "password", nullable = false)
+    @JsonIgnore
     private String password;  // Senha
 
     @Column(name = "email", unique = true, nullable = false, length = 100)
@@ -60,6 +60,10 @@ public class User implements UserDetails {
     @OneToMany(mappedBy = "user")
     @JsonIgnore
     private List<ScheduledTransfer> scheduledTransfer;
+
+    public User() {
+
+    }
 
     public User(UserDTO userDTO, String encode) {
         this.username = userDTO.username();
@@ -98,7 +102,7 @@ public class User implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return true;
+        return isActive;
     }
 
 

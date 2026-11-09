@@ -1,0 +1,1510 @@
+================================================================================
+RELATÓRIO DO DIA — SISTEMA BANCÁRIO
+Data: 09/11/2026
+Projeto: Sistema bancário (Spring Boot)
+Arquivo: outputs/relatorio-do-dia.txt
+================================================================================
+
+LEIA-ME
+-------
+Este relatório descreve, em linguagem simples e com trechos reais de código, tudo
+o que foi feito nesta conversa:
+
+  - configuração de teste com H2;
+  - correção do build MapStruct + Lombok;
+  - organização das classes de teste por pacotes, espelhando o código principal;
+  - correções de contrato descobertas ao ativar o H2;
+  - 8 novos bugs reproduzidos com teste e corrigidos;
+  - correções anteriores (fases 1 e 2) que também fazem parte do trabalho;
+  - 1 candidato a bug investigado e descartado;
+  - comandos e resultados da suíte.
+
+O relatório técnico mais curto continua em:
+  outputs/bug-reproducer-report.md
+
+Observação importante:
+  O working tree do Git contém outras alterações não relacionadas a este
+  trabalho. Este relatório cita apenas o que foi feito nesta conversa. Nada de
+  trabalho do usuário foi sobrescrito de propósito.
+
+================================================================================
+1. RESUMO EXECUTIVO
+================================================================================
+
+Métrica                                                        Valor
+--------------------------------------------------------------------------------
+Bugs de lógica provados e corrigidos                           17
+  - Fases 1 e 2                                                9
+  - Novo ciclo                                                 8
+Correções de contrato descobertas ao ativar o H2               5
+Correção de build (MapStruct + Lombok)                         1
+Reprodutores novos (novo ciclo)                                14 testes / 9 classes
+Classes de teste organizadas por pacote                        28 + 1 controller de sonda
+Candidato investigado e rejeitado                              1
+Regressões introduzidas                                        0
+
+Resultado final da suíte:
+  ./mvnw clean test
+  Tests run: 112, Failures: 0, Errors: 0, Skipped: 0
+  BUILD SUCCESS
+
+================================================================================
+2. COMO O TRABALHO FOI CONDUZIDO
+================================================================================
+
+O método usado foi sempre o mesmo:
+
+  1. Ler o código e localizar um comportamento suspeito.
+  2. Escrever um teste pequeno que reproduza o problema.
+  3. Rodar o teste e confirmar que ele falha (fase "vermelha").
+  4. Fazer a menor correção possível no código de produção.
+  5. Rodar o teste de novo e confirmar que ele passa (fase "verde").
+  6. Rodar a suíte inteira para garantir que nada mais quebrou.
+  7. Registrar a causa, a correção e a evidência.
+
+Isso é importante porque um teste que já nasce verde não prova nada. O valor
+está em ver o teste falhar pelo motivo certo antes da correção.
+
+================================================================================
+3. AMBIENTE E COMANDOS
+================================================================================
+
+Sistema operacional: Linux
+Diretório do projeto:
+  /home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário
+
+Comando da suíte completa:
+  ./mvnw clean test
+
+Comando dos reprodutores do novo ciclo:
+  ./mvnw -Dtest='AlertAMLAccountIdBugTest,RefreshTokenInvalidTokenBugTest,\
+  MissingAccountOptionalBugTest,SavingsDepositLimitMessageBugTest,\
+  SavingsWithdrawalTimezoneBugTest,DepositValidatorOriginBugTest,\
+  TransactionValidateActiveAccountBugTest,SavingsTransferActiveUserBugTest,\
+  CheckingTransferActiveUserBugTest' test
+
+Resultado antes das correções do novo ciclo:
+  Tests run: 14, Failures: 13, Errors: 0, Skipped: 0
+
+Resultado depois das correções do novo ciclo:
+  Tests run: 14, Failures: 0, Errors: 0, Skipped: 0
+  BUILD SUCCESS
+
+================================================================================
+4. INFRAESTRUTURA DE TESTE COM H2
+================================================================================
+
+4.1 O PROBLEMA
+--------------
+Antes deste trabalho, a suíte tentava usar o PostgreSQL de produção configurado
+em:
+
+  jdbc:postgresql://localhost:5555/...
+
+Como esse banco nem sempre estava disponível, 31 testes falhavam por problema
+de infraestrutura, e não por bug de código. Isso escondia o resultado real da
+suíte.
+
+A solução foi criar um banco H2 em memória, usado somente nos testes, sem tocar
+no banco de produção.
+
+4.2 DEPENDÊNCIA DE TESTE
+------------------------
+Foi adicionada ao pom.xml a dependência do H2 com escopo "test":
+
+  <dependency>
+      <groupId>com.h2database</groupId>
+      <artifactId>h2</artifactId>
+      <scope>test</scope>
+  </dependency>
+
+Por que "test"?
+  Porque essa dependência só existe durante a compilação e execução dos testes.
+  Ela não vai para o jar de produção e não substitui o PostgreSQL da aplicação.
+
+4.3 ATIVAÇÃO DO PROFILE
+-----------------------
+Arquivo: src/test/resources/application.properties
+
+  spring.profiles.active=test
+
+Esse arquivo só é lido no classpath de teste. Ele diz ao Spring para carregar o
+profile "test", que usa a configuração abaixo em vez da configuração de produção.
+
+4.4 CONFIGURAÇÃO DO H2
+----------------------
+Arquivo: src/test/resources/application-test.yml
+
+  spring:
+    datasource:
+      url: jdbc:h2:mem:sistema_bancario_test;DB_CLOSE_DELAY=-1;NON_KEYWORDS=TRANSACTION
+      username: sa
+      password: ""
+      driver-class-name: org.h2.Driver
+
+    jpa:
+      show-sql: false
+      hibernate:
+        ddl-auto: create-drop
+      properties:
+        hibernate:
+          format_sql: false
+
+    sql:
+      init:
+        mode: never
+
+    batch:
+      jdbc:
+        initialize-schema: always
+        schema: classpath:org/springframework/batch/core/schema-h2.sql
+        table-prefix: BATCH_
+      job:
+        enabled: false
+
+Explicação linha por linha:
+
+  jdbc:h2:mem:sistema_bancario_test
+    Banco em memória. Não grava arquivo e não depende de servidor externo.
+
+  DB_CLOSE_DELAY=-1
+    Mantém o banco vivo enquanto a JVM de teste existir, mesmo que todas as
+    conexões sejam fechadas. Isso evita perder tabelas entre testes.
+
+  NON_KEYWORDS=TRANSACTION
+    A entidade Transaction gera uma tabela chamada "transaction", que é uma
+    palavra reservada em SQL. Essa opção permite usar esse nome no H2.
+
+  ddl-auto: create-drop
+    O Hibernate cria as tabelas no início da suíte e derruba no fim. Ideal para
+    teste em memória.
+
+  sql.init.mode: never
+    Impede que os scripts SQL de produção sejam executados no H2.
+
+  batch.jdbc.schema: classpath:org/springframework/batch/core/schema-h2.sql
+    O Spring Batch precisa de tabelas próprias. Esse é o script oficial do H2.
+
+  table-prefix: BATCH_
+    Prefixo das tabelas do Batch, para não conflitar com as tabelas do sistema.
+
+  batch.job.enabled: false
+    Evita que jobs agendados rodem sozinhos durante os testes.
+
+4.5 BLOQUEIOS ENCONTRADOS E RESOLVIDOS
+--------------------------------------
+Bloqueio 1: "Unknown data type: TINYINT"
+  Causa:
+    O H2 estava configurado com MODE=PostgreSQL. Nesse modo, o H2 rejeita
+    alguns tipos que o schema do projeto usa, como TINYINT.
+  Solução:
+    O MODE=PostgreSQL foi removido da URL. O H2 passou a aceitar o schema.
+
+Bloqueio 2: "Ambiguous mapping"
+  Causa:
+    Um controller de sonda criado para testar segurança duplicava rotas reais
+    da aplicação. O Spring não sabia qual método atender.
+  Solução:
+    O controller foi isolado com @Profile("security-probe"):
+
+      @RestController
+      @Profile("security-probe")
+      public class SecurityProbeController {
+          ...
+      }
+
+    Assim ele só existe quando o teste ativa esse profile. Os contextos completos
+    de @SpringBootTest não o registram.
+
+4.6 CONFIGURAÇÃO DE PRODUÇÃO
+----------------------------
+A configuração de produção (PostgreSQL, Kafka, JWT) não foi alterada para fins
+de teste. O profile de teste vive apenas em src/test/resources.
+
+================================================================================
+5. CORREÇÃO DE BUILD: MAPSTRUCT + LOMBOK
+================================================================================
+
+5.1 O PROBLEMA
+--------------
+Os mappers do MapStruct estavam sendo gerados vazios, sem nenhum "set". Ou seja,
+o método toEntity recebia o DTO e devolvia uma entidade com todos os campos
+nulos. Isso quebrava criação de contas e transferências agendadas.
+
+5.2 A CAUSA
+-----------
+MapStruct e Lombok são dois processadores de anotação. O MapStruct precisa
+enxergar os getters e setters que o Lombok gera. Sem uma ponte entre os dois,
+o MapStruct roda antes do Lombok e não encontra esses métodos. O resultado é um
+mapper incompleto.
+
+5.3 A CORREÇÃO
+--------------
+Foi adicionado o lombok-mapstruct-binding aos annotationProcessorPaths do
+pom.xml:
+
+  <annotationProcessorPaths>
+      <!-- MapStruct -->
+      <path>
+          <groupId>org.mapstruct</groupId>
+          <artifactId>mapstruct-processor</artifactId>
+          <version>${org.mapstruct.version}</version>
+      </path>
+
+      <!-- Lombok -->
+      <path>
+          <groupId>org.projectlombok</groupId>
+          <artifactId>lombok</artifactId>
+          <version>${lombok.version}</version>
+      </path>
+
+      <!-- Permite que o MapStruct enxergue os getters/setters gerados pelo Lombok -->
+      <path>
+          <groupId>org.projectlombok</groupId>
+          <artifactId>lombok-mapstruct-binding</artifactId>
+          <version>0.2.0</version>
+      </path>
+  </annotationProcessorPaths>
+
+5.4 EVIDÊNCIA
+-------------
+Antes:
+  O SavingsAccountMapperImpl gerado não tinha chamadas como setFullName,
+  setBalance, etc.
+
+Depois:
+  O mapper passou a gerar os sets corretos, copiando os campos do DTO para a
+  entidade.
+
+5.5 IMPACTO
+-----------
+Sem essa correção, vários testes de criação de conta e transferência não teriam
+como passar, porque a entidade salva ficaria com campos nulos.
+
+================================================================================
+6. ORGANIZAÇÃO DOS TESTES
+================================================================================
+
+As classes de teste foram organizadas espelhando os pacotes do código principal.
+Ou seja, cada teste fica no mesmo pacote da classe que ele testa:
+
+  src/test/java/com/github/kiraruto/sistemaBancario/
+    model/
+      AlertAMLAccountIdBugTest.java
+      UserDisabledAuthenticationBugTest.java
+    service/
+      AuditServiceTest.java
+      CheckingAccountServiceTest.java
+      CheckingAccountTransferTransactionBugTest.java
+      RefreshTokenInvalidTokenBugTest.java
+      SavingsAccountServiceTest.java
+      SavingsDepositLimitMessageBugTest.java
+      SavingsWithdrawalTimezoneBugTest.java
+      TransactionServiceTest.java
+      TransferServiceNegativeAmountBugTest.java
+      UserServiceTest.java
+      UserServiceUpdatePasswordBugTest.java
+    utils/
+      CheckingAccountValidateExistingAccountBugTest.java
+      CheckingAccountValidateTransferPositiveBugTest.java
+      CheckingTransferActiveUserBugTest.java
+      DepositValidatorOriginBugTest.java
+      MissingAccountOptionalBugTest.java
+      SavingsTransferActiveUserBugTest.java
+      TransactionValidateActiveAccountBugTest.java
+    controller/
+      SavingsAccountControllerTest.java
+      TransactionControllerTest.java
+      UserControllerTest.java
+      SecurityProbeController.java
+    config/
+      SecurityMatcherPrecedenceBugTest.java
+    global/exception/
+      GlobalExceptionHandlerSecurityExceptionBugTest.java
+    batch/config/
+      InterestRateCalculationBugTest.java
+      JobExecutionTest.java
+    SistemaBancarioApplicationTests.java   (mesmo pacote da classe Application)
+
+Motivo:
+  A estrutura agora é a mesma do código principal. Para descobrir onde está o
+  teste de uma classe, basta olhar o pacote dessa classe. Exemplo: o teste de
+  SavingsAccountService está em service/, o de CheckingAccountValidate está em
+  utils/, e o de SecurityConfiguration está em config/.
+
+O que foi feito:
+  - 28 classes de teste foram distribuídas nos pacotes correspondentes.
+  - O SecurityProbeController de apoio foi para controller/, junto dos demais
+    controllers.
+  - SecurityMatcherPrecedenceBugTest passou a importar SecurityProbeController
+    do pacote controller.
+  - Os pacotes (package ...) de cada arquivo foram atualizados.
+  - A suíte foi rodada de novo: 112 testes, 0 falhas.
+
+Observação:
+  Nesta conversa houve primeiro uma centralização em tests/ e, depois, esta
+  reorganização final por pacotes. A estrutura final é a que está listada acima.
+
+================================================================================
+7. CORREÇÕES DE CONTRATO DESCOBERTAS AO ATIVAR O H2
+================================================================================
+
+Quando o H2 foi ativado, testes de contexto voltaram a rodar e revelaram cinco
+defeitos reais de contrato. "Contrato" aqui significa: o que a API promete
+devolver ou aceitar.
+
+--------------------------------------------------------------------------------
+7.1 UUID COM @NotBlank
+--------------------------------------------------------------------------------
+Arquivo: src/main/java/.../dto/DepositRequestDTO.java
+
+ANTES:
+
+  @NotBlank(message = "O id da conta que manda o dinheiro não pode estar vazio")
+  UUID accountSends,
+
+  @NotBlank(message = "O id da conta que recebe o dinheiro não pode estar vazio")
+  UUID accountReceive,
+
+DEPOIS:
+
+  @NotNull(message = "O id da conta que manda o dinheiro não pode estar vazio")
+  UUID accountSends,
+
+  @NotNull(message = "O id da conta que recebe o dinheiro não pode estar vazio")
+  UUID accountReceive,
+
+Por que estava errado:
+  @NotBlank só pode ser usado em textos (CharSequence). Em um UUID, o Hibernate
+  Validator lança UnexpectedTypeException. O resultado era HTTP 500 antes mesmo
+  de a regra de negócio rodar.
+
+Por que a correção funciona:
+  @NotNull é a validação correta para objeto/UUID: garante que o campo não é
+  nulo, sem tentar tratá-lo como texto.
+
+--------------------------------------------------------------------------------
+7.2 ROTAS /create CAPTURADAS POR /{id}
+--------------------------------------------------------------------------------
+Arquivo: src/main/java/.../config/SecurityConfiguration.java
+
+O problema:
+  O Spring Security usa a primeira regra que casa. A regra genérica
+  "/savings-accounts/{id}" casava também com "/savings-accounts/create".
+  Como essa regra exigia o papel CLIENTE, um ADMIN ou GERENTE recebia 403 ao
+  tentar criar conta.
+
+A correção:
+  Foi criada uma lista específica para as rotas literais de criação:
+
+  private static final String[] ADMIN_GERENTE_CREATE_PATHS = {
+          "/savings-accounts/create",
+          "/checking-accounts/create"
+  };
+
+  E ela é registrada ANTES das regras com "/{id}":
+
+  .requestMatchers(PUBLIC_PATHS).permitAll()
+  .requestMatchers(ADMIN_GERENTE_CLIENTE_PATHS).hasAnyAuthority(ADMIN, GERENTE, CLIENTE)
+  .requestMatchers(ADMIN_GERENTE_CREATE_PATHS).hasAnyAuthority(ADMIN, GERENTE)
+  .requestMatchers(ADMIN_CLIENTE_PATHS).hasAnyAuthority(ADMIN, CLIENTE)
+  .requestMatchers(GERENTE_CLIENTE_PATHS).hasAnyAuthority(GERENTE, CLIENTE)
+  .requestMatchers(CLIENTE_PATHS).hasAuthority(CLIENTE)
+  .requestMatchers(ADMIN_PATHS).hasAuthority(ADMIN)
+  .requestMatchers(GERENTE_PATHS).hasAuthority(GERENTE)
+  .requestMatchers(ADMIN_GERENTE_PATHS).hasAnyAuthority(ADMIN, GERENTE)
+  .anyRequest().authenticated()
+
+Por que a correção funciona:
+  A rota literal agora é avaliada antes da rota com variável. O ADMIN/GERENTE
+  entra na regra correta e não cai mais na regra de CLIENTE.
+
+--------------------------------------------------------------------------------
+7.3 CONTA INEXISTENTE RETORNAVA 400 EM VEZ DE 404
+--------------------------------------------------------------------------------
+Arquivo: src/main/java/.../service/SavingsAccountService.java
+
+ANTES:
+
+  public SavingsAccount getById(UUID id) {
+      return savingsAccountRepository.findById(id)
+              .orElseThrow(() -> new IllegalArgumentException("O Id não existe!"));
+  }
+
+DEPOIS:
+
+  public SavingsAccount getById(UUID id) {
+      return savingsAccountRepository.findById(id)
+              .orElseThrow(() -> new EntityNotFoundException("O Id não existe!"));
+  }
+
+Por que estava errado:
+  IllegalArgumentException é mapeada pelo GlobalExceptionHandler para HTTP 400
+  (requisição inválida). Mas uma conta que não existe é um recurso ausente, ou
+  seja, HTTP 404.
+
+Por que a correção funciona:
+  EntityNotFoundException está mapeada para HTTP 404 no handler global.
+
+--------------------------------------------------------------------------------
+7.4 MAPPER NÃO PREENCHIA isActive
+--------------------------------------------------------------------------------
+Arquivo: src/main/java/.../mapper/SavingsAccountMapper.java
+
+ANTES:
+
+  @Mapper(componentModel = "spring")
+  public interface SavingsAccountMapper {
+      SavingsAccount toEntity(SavingsAccountDTO dto);
+      SavingsAccountDTO toDto(SavingsAccount entity);
+  }
+
+DEPOIS:
+
+  @Mapper(componentModel = "spring")
+  public interface SavingsAccountMapper {
+
+      @Mapping(target = "isActive", constant = "true")
+      SavingsAccount toEntity(SavingsAccountDTO dto);
+
+      SavingsAccountDTO toDto(SavingsAccount entity);
+  }
+
+Por que estava errado:
+  O DTO não traz o campo isActive. O mapper deixava esse campo nulo. Como a
+  coluna no banco é NOT NULL, o INSERT falhava com "NULL not allowed".
+
+Por que a correção funciona:
+  A anotação @Mapping define um valor constante "true" para isActive. Toda conta
+  criada pelo mapper nasce ativa.
+
+--------------------------------------------------------------------------------
+7.5 TRANSFERÊNCIA ENTRE POUPANÇAS NÃO ERA ATÔMICA
+--------------------------------------------------------------------------------
+Arquivo: src/main/java/.../service/SavingsAccountService.java
+
+ANTES:
+
+  Transaction transaction = new Transaction(depositRequestDTO, transactionValidate);
+  transaction.setDescription("Transferência entre Contas Poupança");
+  transactionRespository.save(transaction);
+
+DEPOIS:
+
+  @Transactional
+  public void transferSavingsAccount(DepositRequestDTO depositRequestDTO) {
+      ...
+      Transaction transaction = new Transaction();
+      transaction.setAccountSends(senderId);
+      transaction.setAccountReceive(receiverId);
+      transaction.setTransactionType(EnumTransactionType.TRANSFERENCIA);
+      transaction.setAmount(depositRequestDTO.balance());
+      transaction.setTransactionDate(LocalDateTime.now(ZoneId.of("America/Sao_Paulo")));
+      transaction.setStatus(EnumStatus.CONCLUIDA);
+      transaction.setDescription("Transferência entre Contas Poupança");
+      transactionRespository.save(transaction);
+  }
+
+Por que estava errado:
+  1. O construtor new Transaction(depositRequestDTO, transactionValidate) chama
+     a validação de DEPÓSITO, não de transferência. Ele pode classificar a
+     transação como depósito e até marcar status de fraude.
+  2. Se o save da transação falhasse depois de os saldos já terem sido salvos,
+     não havia rollback. As contas ficavam debitadas/creditadas sem transação.
+
+Por que a correção funciona:
+  - @Transactional garante que saldo e transação sejam uma única operação:
+    ou tudo é salvo, ou nada é.
+  - A transação é criada explicitamente com TRANSFERENCIA, que é o tipo correto
+    para o extrato.
+
+================================================================================
+8. NOVO CICLO: 8 BUGS CORRIGIDOS
+================================================================================
+
+Foram criados 14 testes em 9 classes. Todos falharam antes da correção e
+passaram depois.
+
+--------------------------------------------------------------------------------
+BUG 1 — AlertAML gravava o id da TRANSAÇÃO no campo accountId
+--------------------------------------------------------------------------------
+Arquivo: src/main/java/.../model/AlertAML.java
+Teste: AlertAMLAccountIdBugTest
+
+ANTES:
+
+  public AlertAML(Transaction transaction, String cpf) {
+      this.accountId = transaction.getId().toString();
+      this.amount = transaction.getAmount();
+      this.date = LocalDateTime.now();
+      this.cpf = cpf;
+      this.status = EnumStatusAlert.EM_ANALISE;
+      this.observacoes = "Transição pendente da conta" + transaction.getId();
+  }
+
+DEPOIS:
+
+  public AlertAML(Transaction transaction, String cpf) {
+      UUID accountId = transaction.getAccountReceive() != null
+              ? transaction.getAccountReceive()
+              : transaction.getAccountSends();
+
+      this.accountId = accountId != null ? accountId.toString() : null;
+      this.amount = transaction.getAmount();
+      this.date = LocalDateTime.now();
+      this.cpf = cpf;
+      this.status = EnumStatusAlert.EM_ANALISE;
+      this.observacoes = "Transição pendente da conta " + this.accountId;
+  }
+
+Causa:
+  transaction.getId() é o identificador da transação, não o identificador da
+  conta. O alerta AML ficava apontando para um id que não era de conta nenhuma.
+  Além disso, se a transação ainda não estivesse persistida, getId() podia ser
+  nulo e o .toString() lançava NullPointerException.
+
+Correção:
+  O alerta agora usa a conta de destino (accountReceive). Se ela não existir,
+  usa a conta de origem (accountSends). Se as duas forem nulas, grava null em
+  vez de estourar exceção.
+
+Por que funciona:
+  O campo accountId passa a conter um id de conta de verdade, que é o que o
+  sistema de compliance espera.
+
+--------------------------------------------------------------------------------
+BUG 2 — Refresh token inválido retornava null e HTTP 200
+--------------------------------------------------------------------------------
+Arquivo: src/main/java/.../service/AuthenticationService.java
+Teste: RefreshTokenInvalidTokenBugTest
+
+ANTES:
+
+  if (jwtService.isTokenValid(refreshTokenRequest.token(), user)) {
+      var jwt = jwtService.generateToken(user);
+      return new JWTAuthenticationresponse(jwt, refreshTokenRequest.token());
+  }
+
+  return null;
+
+DEPOIS:
+
+  if (jwtService.isTokenValid(refreshTokenRequest.token(), user)) {
+      var jwt = jwtService.generateToken(user);
+      return new JWTAuthenticationresponse(jwt, refreshTokenRequest.token());
+  }
+
+  throw new BadCredentialsException("Refresh token inválido ou expirado.");
+
+Causa:
+  O controller faz ResponseEntity.ok(authenticationService.refreshToken(...)).
+  Quando o serviço devolvia null, o cliente recebia HTTP 200 com corpo vazio.
+  Ou seja, um token inválido parecia ter sido aceito.
+
+Correção:
+  O serviço agora lança BadCredentialsException, que é uma subclasse de
+  AuthenticationException.
+
+Por que funciona:
+  O GlobalExceptionHandler trata AuthenticationException com HTTP 401. O cliente
+  recebe o código correto de "não autenticado".
+
+--------------------------------------------------------------------------------
+BUG 3 — Optional.get() sem verificação gerava HTTP 500
+--------------------------------------------------------------------------------
+Arquivos:
+  src/main/java/.../utils/SavingsAccountValidate.java
+  src/main/java/.../utils/CheckingAccountValidate.java
+Teste: MissingAccountOptionalBugTest (4 testes)
+
+ANTES (poupança, depósito e saque):
+
+  Optional<SavingsAccount> savingsAccount =
+          savingsAccountRepository.findById(withdrawRequestDTO.idAccount());
+  var sa = savingsAccount.get();
+
+DEPOIS:
+
+  SavingsAccount sa = savingsAccountRepository.findById(withdrawRequestDTO.idAccount())
+          .orElseThrow(() -> new EntityNotFoundException("A conta poupança não existe"));
+
+ANTES (conta corrente, saque e withdrawal):
+
+  Optional<CheckingAccount> checkingAccount =
+          checkingAccountRepository.findById(withdrawRequestDTO.idAccount());
+  var ch = checkingAccount.get();
+
+DEPOIS:
+
+  CheckingAccount ch = checkingAccountRepository.findById(withdrawRequestDTO.idAccount())
+          .orElseThrow(() -> new EntityNotFoundException("A conta corrente não existe"));
+
+Causa:
+  Optional.get() sem isPresent() lança NoSuchElementException quando a conta
+  não existe. Essa exceção não é tratada como "não encontrado", então virava
+  HTTP 500.
+
+Correção:
+  orElseThrow com EntityNotFoundException.
+
+Por que funciona:
+  O handler global mapeia EntityNotFoundException para HTTP 404. O cliente
+  recebe "não encontrado" em vez de "erro interno".
+
+Testes:
+  - savingsDepositOnMissingAccountShouldBeNotFound
+  - savingsWithdrawalOnMissingAccountShouldBeNotFound
+  - checkingDepositOnMissingAccountShouldBeNotFound
+  - checkingWithdrawalOnMissingAccountShouldBeNotFound
+
+--------------------------------------------------------------------------------
+BUG 4 — Mensagem do limite de depósito dizia R$ 50.000, mas o limite era R$ 10.000
+--------------------------------------------------------------------------------
+Arquivo: src/main/java/.../service/SavingsAccountService.java
+Teste: SavingsDepositLimitMessageBugTest
+
+ANTES:
+
+  fraudTransaction.setDescription("Depósito acima de R$ 10.000 - Verificação manual");
+  ...
+  throw new DepositLimitExceededException(
+          "O valor do depósito excede o limite permitido de R$ 50.000");
+
+DEPOIS:
+
+  fraudTransaction.setDescription("Depósito acima de R$ 9.999 - Verificação manual");
+  ...
+  throw new DepositLimitExceededException(
+          "O valor do depósito excede o limite permitido de R$ 10.000");
+
+Causa:
+  A condição do código sempre foi compareTo(BigDecimal.valueOf(10000)) > 0,
+  ou seja, o limite real é R$ 10.000. A mensagem, porém, dizia R$ 50.000. Isso
+  confundia o usuário e dificultava suporte.
+
+Correção:
+  A mensagem passou a dizer R$ 10.000. A descrição da transação foi ajustada
+  para R$ 9.999.
+
+Por que funciona:
+  O texto agora corresponde à regra que o código realmente aplica.
+
+Ponto de atenção:
+  A condição é "maior que 10.000". A descrição diz "acima de 9.999". Se a regra
+  de negócio for "a partir de 10.000", vale alinhar a condição e o texto em uma
+  próxima mudança. O teste atual valida a mensagem de erro.
+
+--------------------------------------------------------------------------------
+BUG 5 — Saque usava o fuso horário padrão do servidor
+--------------------------------------------------------------------------------
+Arquivos:
+  src/main/java/.../service/SavingsAccountService.java
+  src/main/java/.../service/CheckingAccountService.java
+Teste: SavingsWithdrawalTimezoneBugTest
+
+ANTES (poupança):
+
+  LocalDateTime now = LocalDateTime.now();
+  LocalDateTime twentyFourHoursAgo = now.minusHours(24);
+
+DEPOIS (poupança):
+
+  LocalDateTime now = LocalDateTime.now(ZoneId.of("America/Sao_Paulo"));
+  LocalDateTime twentyFourHoursAgo = now.minusHours(24);
+
+ANTES (conta corrente):
+
+  transaction.setTransactionDate(LocalDateTime.now());
+
+DEPOIS (conta corrente):
+
+  transaction.setTransactionDate(LocalDateTime.now(ZoneId.of("America/Sao_Paulo")));
+
+Causa:
+  LocalDateTime.now() usa o fuso padrão da JVM. Se o servidor estivesse em UTC,
+  o corte de 24 horas ficava 3 horas diferente do horário de Brasília. Isso
+  podia contar transações fora da janela ou deixar de contar transações dentro
+  dela. Além disso, a data gravada na transação ficava inconsistente com outras
+  partes do sistema que já usavam America/Sao_Paulo.
+
+Correção:
+  Tanto o cálculo da janela de 24 horas quanto a data da transação passaram a
+  usar America/Sao_Paulo.
+
+Por que funciona:
+  O teste captura a transação salva e verifica se a data está próxima do horário
+  de São Paulo, não do horário padrão da máquina.
+
+--------------------------------------------------------------------------------
+BUG 6 — Origem do depósito comparada como texto, nunca casava
+--------------------------------------------------------------------------------
+Arquivo: src/main/java/.../utils/DepositValidator.java
+Teste: DepositValidatorOriginBugTest (2 testes)
+
+ANTES:
+
+  if (!List.of("AGENCIA", "ATM").contains(request.origin())) {
+      throw new InvalidDepositOriginException(
+              "Origem do depósito inválida. Permitido apenas: AGENCIA ou ATM.");
+  }
+
+DEPOIS:
+
+  if (request.origin() != EnumOrigin.DINHEIRO_FISICO) {
+      throw new InvalidDepositOriginException(
+              "Origem do depósito inválida. Permitido apenas: DINHEIRO_FISICO.");
+  }
+
+O mesmo ajuste foi feito no fluxo de transação:
+
+ANTES:
+
+  if (!List.of("AGENCIA", "ATM").contains(withdrawRequestDTO.enumOrigin())) {
+      throw new InvalidDepositOriginException(...);
+  }
+
+DEPOIS:
+
+  if (withdrawRequestDTO.enumOrigin() != EnumOrigin.DINHEIRO_FISICO) {
+      throw new InvalidDepositOriginException(...);
+  }
+
+Causa:
+  request.origin() é do tipo EnumOrigin. A lista continha Strings. contains()
+  comparava String com enum e sempre retornava false. Com o "!" na frente, a
+  condição virava true e a exceção era lançada para QUALQUER origem, inclusive
+  dinheiro físico.
+
+Além disso, o enum nem possui os valores AGENCIA ou ATM. Os valores reais são:
+
+  public enum EnumOrigin {
+      TED,
+      DOC,
+      DINHEIRO_FISICO,
+      SAQUE
+  }
+
+Correção:
+  Comparar diretamente com EnumOrigin.DINHEIRO_FISICO, que é a origem usada
+  nesse fluxo.
+
+Por que funciona:
+  A comparação agora é entre o mesmo tipo. Depósito em dinheiro físico passa;
+  as demais origens são rejeitadas com a mensagem correta.
+
+--------------------------------------------------------------------------------
+BUG 7 — Conta ativa era tratada como falha; conta inativa era concluída
+--------------------------------------------------------------------------------
+Arquivo: src/main/java/.../utils/TransactionValidate.java
+Teste: TransactionValidateActiveAccountBugTest (2 testes)
+
+ANTES:
+
+  if (contaDestino.getIsActive()) {
+      return EnumStatus.FALHOU;
+  }
+
+DEPOIS:
+
+  if (!Boolean.TRUE.equals(contaDestino.getIsActive())) {
+      return EnumStatus.FALHOU;
+  }
+
+Causa:
+  A condição estava invertida. Se a conta estava ativa (true), o método retornava
+  FALHOU. Se estava inativa (false), seguia adiante e podia retornar CONCLUIDA.
+  Era o oposto da regra de negócio.
+
+Correção:
+  A negação foi adicionada. Além disso, Boolean.TRUE.equals(...) evita
+  NullPointerException se o campo vier nulo.
+
+Por que funciona:
+  Conta ativa continua o fluxo e retorna CONCLUIDA; conta inativa ou nula
+  retorna FALHOU.
+
+Testes:
+  - activeAccountShouldCompleteDeposit
+  - inactiveAccountShouldFailDeposit
+
+--------------------------------------------------------------------------------
+BUG 8 — Transferência validava usuário usando o id da CONTA
+--------------------------------------------------------------------------------
+Arquivos:
+  src/main/java/.../utils/SavingsAccountValidate.java
+  src/main/java/.../utils/CheckingAccountValidate.java
+Testes:
+  SavingsTransferActiveUserBugTest
+  CheckingTransferActiveUserBugTest
+
+ANTES (poupança):
+
+  if (Boolean.FALSE.equals(
+          userRepository.isActiveById(depositRequestDTO.accountSends()))) {
+      throw new IllegalArgumentException("O usuário que enviou o dinheiro não está ativo");
+  }
+
+  if (Boolean.FALSE.equals(
+          userRepository.isActiveById(depositRequestDTO.accountReceive()))) {
+      throw new IllegalArgumentException("O usuário que recebeu o dinheiro não está ativo");
+  }
+
+DEPOIS (poupança):
+
+  SavingsAccount sender = savingsAccountRepository.findById(depositRequestDTO.accountSends())
+          .orElseThrow(() -> new EntityNotFoundException("A conta de origem não existe"));
+  SavingsAccount receiver = savingsAccountRepository.findById(depositRequestDTO.accountReceive())
+          .orElseThrow(() -> new EntityNotFoundException("A conta de destino não existe"));
+
+  if (Boolean.FALSE.equals(userRepository.isActiveById(sender.getUser().getId()))) {
+      throw new IllegalArgumentException("O usuário que enviou o dinheiro não está ativo");
+  }
+
+  if (Boolean.FALSE.equals(userRepository.isActiveById(receiver.getUser().getId()))) {
+      throw new IllegalArgumentException("O usuário que recebeu o dinheiro não está ativo");
+  }
+
+ANTES (conta corrente):
+
+  if (!Boolean.TRUE.equals(
+          userRepository.isActiveById(depositRequestDTO.accountSends()))) {
+      throw new IllegalArgumentException("O usuario que mandou o dinheiro não está ativo");
+  }
+
+  if (!Boolean.TRUE.equals(
+          userRepository.isActiveById(depositRequestDTO.accountReceive()))) {
+      throw new IllegalArgumentException("O usuario que recebeu o dinheiro não está ativo");
+  }
+
+DEPOIS (conta corrente):
+
+  CheckingAccount sender = checkingAccountRepository.findById(depositRequestDTO.accountSends())
+          .orElseThrow(() -> new EntityNotFoundException("A conta de origem não existe"));
+  CheckingAccount receiver = checkingAccountRepository.findById(depositRequestDTO.accountReceive())
+          .orElseThrow(() -> new EntityNotFoundException("A conta de destino não existe"));
+
+  if (!Boolean.TRUE.equals(userRepository.isActiveById(sender.getUser().getId()))) {
+      throw new IllegalArgumentException("O usuario que mandou o dinheiro não está ativo");
+  }
+
+  if (!Boolean.TRUE.equals(userRepository.isActiveById(receiver.getUser().getId()))) {
+      throw new IllegalArgumentException("O usuario que recebeu o dinheiro não está ativo");
+  }
+
+Causa:
+  O método isActiveById espera o ID DO USUÁRIO. O código passava o ID DA CONTA.
+  Como os dois são UUIDs diferentes, a consulta não encontrava o usuário e
+  retornava false ou null. Resultado: transferências legítimas eram rejeitadas
+  como "usuário inativo".
+
+Correção:
+  O código busca a conta, obtém o usuário dono dela e passa user.getId().
+
+Por que funciona:
+  Agora o id consultado é realmente o id do usuário. A validação de atividade
+  passa a refletir o dono da conta.
+
+Detalhe do teste:
+  O teste de poupança simula o retorno real do JPA para usuário inexistente
+  (null) quando o id errado é usado, e retorna false/true corretamente quando o
+  id do usuário é usado. Assim ele fica vermelho pelo motivo certo antes da
+  correção.
+
+================================================================================
+9. FASES 1 E 2: OS 9 BUGS ANTERIORES
+================================================================================
+
+Estes bugs também foram corrigidos nesta conversa, antes do novo ciclo.
+
+--------------------------------------------------------------------------------
+9.1 VALOR POSITIVO REJEITADO NA TRANSFERÊNCIA/DEPÓSITO
+--------------------------------------------------------------------------------
+Arquivo: src/main/java/.../utils/CheckingAccountValidate.java
+
+ANTES:
+
+  if (depositRequestDTO.balance().compareTo(BigDecimal.ZERO) >= 0) {
+      throw new IllegalArgumentException("O valor do depósito deve ser positivo.");
+  }
+
+DEPOIS:
+
+  if (depositRequestDTO.balance().compareTo(BigDecimal.ZERO) <= 0) {
+      throw new IllegalArgumentException("O valor do depósito deve ser positivo.");
+  }
+
+Causa:
+  A condição dizia "se o valor for maior ou igual a zero, lance erro". Isso
+  rejeitava qualquer valor positivo. O correto é rejeitar zero ou negativo.
+
+Correção:
+  O operador foi trocado de >= para <=.
+
+--------------------------------------------------------------------------------
+9.2 CONTA EXISTENTE REJEITADA COMO "NÃO EXISTE"
+--------------------------------------------------------------------------------
+Arquivo: src/main/java/.../utils/CheckingAccountValidate.java
+
+ANTES:
+
+  if (checkingAccountRepository.existsByFullNameAndEmailAndCpf(
+          ch.getFullName(), ch.getEmail(), ch.getCpf())) {
+      throw new IllegalArgumentException("Não existe conta com este nome, email ou cpf");
+  }
+
+DEPOIS:
+
+  if (!checkingAccountRepository.existsByFullNameAndEmailAndCpf(
+          ch.getFullName(), ch.getEmail(), ch.getCpf())) {
+      throw new IllegalArgumentException("Não existe conta com este nome, email ou cpf");
+  }
+
+Causa:
+  Faltava a negação. O código lançava erro justamente quando a conta EXISTIA.
+
+Correção:
+  O "!" inverte a lógica: agora o erro só acontece quando a conta NÃO existe.
+
+--------------------------------------------------------------------------------
+9.3 TRANSFERÊNCIA ACEITAVA VALOR NEGATIVO
+--------------------------------------------------------------------------------
+Arquivo: src/main/java/.../service/TransferService.java
+
+ANTES:
+  O método transfer não validava o sinal do valor. Ele fazia:
+
+    c.setBalance(c.getBalance().subtract(dto.amount()));  // origem
+    c.setBalance(c.getBalance().add(dto.amount()));       // destino
+
+  Com amount negativo, "subtract negativo" soma na origem, e "add negativo"
+  subtrai no destino. O dinheiro fluía ao contrário.
+
+DEPOIS:
+
+  public void transfer(TransferRequestDTO dto) {
+      if (dto.amount() == null || dto.amount().compareTo(BigDecimal.ZERO) <= 0) {
+          throw new IllegalArgumentException("O valor da transferência deve ser positivo");
+      }
+      ...
+      debit(dto.fromId(), dto.fromType(), dto.amount());
+      credit(dto.toId(), dto.toType(), dto.amount());
+  }
+
+Correção:
+  - Validação explícita de valor nulo, zero ou negativo.
+  - O código de débito e crédito foi separado em métodos debit() e credit(),
+    deixando o fluxo mais claro e reduzindo duplicação.
+
+--------------------------------------------------------------------------------
+9.4 USUÁRIO DESATIVADO CONTINUAVA AUTENTICANDO
+--------------------------------------------------------------------------------
+Arquivo: src/main/java/.../model/User.java
+
+ANTES:
+
+  @Override
+  public boolean isEnabled() {
+      return true;
+  }
+
+DEPOIS:
+
+  @Override
+  public boolean isEnabled() {
+      return isActive;
+  }
+
+Causa:
+  O Spring Security usa isEnabled() para decidir se o usuário pode autenticar.
+  Retornar true sempre fazia com que uma conta desativada ainda conseguisse
+  fazer login.
+
+Correção:
+  O método passou a devolver o campo isActive da entidade.
+
+--------------------------------------------------------------------------------
+9.5 UPDATE DE USUÁRIO GRAVAVA SENHA EM TEXTO PURO
+--------------------------------------------------------------------------------
+Arquivo: src/main/java/.../service/UserService.java
+
+ANTES:
+
+  user.setPassword(userDTO.password());
+
+DEPOIS:
+
+  user.setPassword(passwordEncoder.encode(userDTO.password()));
+
+Causa:
+  A senha era salva como o usuário digitou. Isso quebrava o login (que compara
+  com hash) e expunha a senha no banco.
+
+Correção:
+  A senha passou a ser codificada com o PasswordEncoder antes de salvar.
+
+--------------------------------------------------------------------------------
+9.6 MATCHERS DE SEGURANÇA COM PRECEDÊNCIA ERRADA
+--------------------------------------------------------------------------------
+Arquivo: src/main/java/.../config/SecurityConfiguration.java
+Teste: SecurityMatcherPrecedenceBugTest (3 testes)
+
+Problema:
+  O Spring Security avalia as regras na ordem em que são declaradas e para na
+  primeira que casar. Regras genéricas como "/savings-accounts/**" estavam
+  antes de regras específicas. Um CLIENTE tentando acessar o próprio depósito
+  caía primeiro na regra de GERENTE e recebia 403.
+
+ANTES (ordem):
+
+  .requestMatchers(PUBLIC_PATHS).permitAll()
+  .requestMatchers(ADMIN_PATHS).hasAuthority(ADMIN)
+  .requestMatchers(GERENTE_PATHS).hasAuthority(GERENTE)
+  .requestMatchers(CLIENTE_PATHS).hasAuthority(CLIENTE)
+  .requestMatchers(ADMIN_GERENTE_PATHS).hasAnyAuthority(ADMIN, GERENTE)
+  .requestMatchers(ADMIN_CLIENTE_PATHS).hasAnyAuthority(ADMIN, CLIENTE)
+  .requestMatchers(GERENTE_CLIENTE_PATHS).hasAnyAuthority(GERENTE, CLIENTE)
+  .requestMatchers(ADMIN_GERENTE_CLIENTE_PATHS).hasAnyAuthority(ADMIN, GERENTE, CLIENTE)
+  .anyRequest().authenticated()
+
+DEPOIS (ordem):
+
+  .requestMatchers(PUBLIC_PATHS).permitAll()
+  .requestMatchers(ADMIN_GERENTE_CLIENTE_PATHS).hasAnyAuthority(ADMIN, GERENTE, CLIENTE)
+  .requestMatchers(ADMIN_GERENTE_CREATE_PATHS).hasAnyAuthority(ADMIN, GERENTE)
+  .requestMatchers(ADMIN_CLIENTE_PATHS).hasAnyAuthority(ADMIN, CLIENTE)
+  .requestMatchers(GERENTE_CLIENTE_PATHS).hasAnyAuthority(GERENTE, CLIENTE)
+  .requestMatchers(CLIENTE_PATHS).hasAuthority(CLIENTE)
+  .requestMatchers(ADMIN_PATHS).hasAuthority(ADMIN)
+  .requestMatchers(GERENTE_PATHS).hasAuthority(GERENTE)
+  .requestMatchers(ADMIN_GERENTE_PATHS).hasAnyAuthority(ADMIN, GERENTE)
+  .anyRequest().authenticated()
+
+Correção:
+  As regras mais específicas passaram a vir antes das mais genéricas. As rotas
+  literais de criação também vêm antes de "/{id}".
+
+--------------------------------------------------------------------------------
+9.7 HANDLER CAPTURAVA EXCEÇÕES ERRADAS
+--------------------------------------------------------------------------------
+Arquivo: src/main/java/.../global/exception/GlobalExceptionHandler.java
+Teste: GlobalExceptionHandlerSecurityExceptionBugTest (2 testes)
+
+ANTES:
+
+  import javax.naming.AuthenticationException;
+  import java.nio.file.AccessDeniedException;
+
+DEPOIS:
+
+  import org.springframework.security.core.AuthenticationException;
+  import org.springframework.security.access.AccessDeniedException;
+
+Causa:
+  O handler importava exceções de pacotes errados. As exceções reais lançadas
+  pelo Spring Security não eram capturadas pelas anotações @ExceptionHandler,
+  então viravam HTTP 500 em vez de 401/403.
+
+Correção:
+  Os imports passaram a apontar para as classes corretas do Spring Security.
+
+--------------------------------------------------------------------------------
+9.8 JOB DE JUROS COM TAXA FIXA, AGENDADO DUAS VEZES E READER ESGOTÁVEL
+--------------------------------------------------------------------------------
+Arquivo: src/main/java/.../batch/config/BatchConfig.java
+Teste: InterestRateCalculationBugTest (2 testes)
+
+ANTES:
+
+  @Configuration
+  @EnableBatchProcessing
+  @EnableScheduling
+  public class BatchConfig {
+
+      private final JobLauncher jobLauncher;
+
+      @Scheduled(cron = "0 0 2 * * *")
+      public void runInterestCalculationJob() throws Exception {
+          jobLauncher.run(interestCalculationJob(), new JobParameters());
+      }
+
+      @Bean
+      public ListItemReader<SavingsAccount> interestReader() {
+          return new ListItemReader<>(savingsAccountRepository.findAll());
+      }
+
+      @Bean
+      public ItemProcessor<SavingsAccount, SavingsAccount> interestProcessor() {
+          return conta -> {
+              BigDecimal feeMonthly = new BigDecimal("0.005");
+              ...
+          };
+      }
+  }
+
+DEPOIS:
+
+  @Configuration
+  @EnableBatchProcessing
+  public class BatchConfig {
+
+      @Bean
+      @StepScope
+      public ListItemReader<SavingsAccount> interestReader() {
+          return new ListItemReader<>(savingsAccountRepository.findAll());
+      }
+
+      @Bean
+      public ItemProcessor<SavingsAccount, SavingsAccount> interestProcessor() {
+          return conta -> {
+              BigDecimal feeMonthly = conta.getInterestRate();
+              if (feeMonthly == null) {
+                  feeMonthly = new BigDecimal("0.005");
+              }
+              ...
+          };
+      }
+  }
+
+Três problemas corrigidos:
+  1. Taxa fixa: o job ignorava a taxa específica de cada conta. Agora usa
+     conta.getInterestRate(), com fallback para 0,005 se estiver nula.
+  2. Agendamento duplicado: o job era chamado pelo @Scheduled e também podia
+     ser disparado pelo próprio Spring Batch. O @Scheduled foi removido.
+  3. Reader esgotável: um ListItemReader criado como bean singleton lê a lista
+     uma vez e depois fica vazio. @StepScope cria um reader novo por execução
+     do step.
+
+--------------------------------------------------------------------------------
+9.9 TRANSFERÊNCIA CORRENTE→CORRENTE USAVA VALIDAÇÃO DE POUPANÇA
+--------------------------------------------------------------------------------
+Arquivo: src/main/java/.../service/CheckingAccountService.java
+Teste: CheckingAccountTransferTransactionBugTest
+
+ANTES:
+
+  Transaction transaction = new Transaction(depositRequestDTO, transactionValidate);
+  transaction.setDescription("Transferência entre contas");
+  transactionRespository.save(transaction);
+
+DEPOIS:
+
+  @Transactional
+  public void transferCheckingAccount(@Valid DepositRequestDTO depositRequestDTO) {
+      ...
+      Transaction transaction = new Transaction();
+      transaction.setAccountSends(senderId);
+      transaction.setAccountReceive(receiverId);
+      transaction.setTransactionType(EnumTransactionType.TRANSFERENCIA);
+      transaction.setAmount(depositRequestDTO.balance());
+      transaction.setTransactionDate(LocalDateTime.now(ZoneId.of("America/Sao_Paulo")));
+      transaction.setStatus(EnumStatus.CONCLUIDA);
+      transaction.setDescription("Transferência entre contas");
+      transactionRespository.save(transaction);
+  }
+
+Causa:
+  O construtor new Transaction(depositRequestDTO, transactionValidate) chama
+  transactionValidate.deposit(), que procura a conta de destino no repositório
+  de POUPANÇA. Em uma transferência entre contas correntes, essa conta não
+  existe nesse repositório. A exceção era lançada DEPOIS de os saldos já terem
+  sido alterados e salvos.
+
+Correção:
+  - A transação é criada explicitamente com TRANSFERENCIA.
+  - O método é @Transactional, então qualquer falha desfaz a alteração de saldo.
+
+================================================================================
+10. CANDIDATO INVESTIGADO E REJEITADO
+================================================================================
+
+Hipótese:
+  "A classe Transaction classifica alguns saques como DEPOSITO."
+
+O que chamou atenção:
+  Existem construtores que recebem WithdrawRequestDTO e gravam
+  EnumTransactionType.DEPOSITO. O nome "Withdraw" sugere saque, mas o tipo
+  gravado é depósito.
+
+Investigação:
+  Foram revisados todos os usos de new Transaction(...) na aplicação. Os dois
+  construtores que recebem WithdrawRequestDTO são usados apenas em fluxos de
+  depósito:
+
+    - SavingsAccountService.deposit(...)
+    - CheckingAccountService.deposit(...)
+    - detecção de fraude de depósito (DepositValidatorService e
+      SavingsAccountService)
+
+  Os saques de verdade usam WithdrawalRequestDTO, cujo construtor define:
+
+    this.transactionType = EnumTransactionType.SAQUE;
+
+Conclusão:
+  NÃO é bug. O nome WithdrawRequestDTO é enganoso, mas o tipo gravado
+  (DEPOSITO) está correto nos pontos em que esse construtor é usado.
+
+Nenhuma alteração foi feita por causa dessa hipótese.
+
+Recomendação:
+  Renomear WithdrawRequestDTO para algo como AccountMovementRequestDTO, para
+  deixar claro que ele representa movimentação de conta e não necessariamente
+  saque.
+
+================================================================================
+11. EVIDÊNCIAS DE EXECUÇÃO
+================================================================================
+
+11.1 REPRODUTORES DO NOVO CICLO
+-------------------------------
+Comando:
+
+  ./mvnw -Dtest='AlertAMLAccountIdBugTest,RefreshTokenInvalidTokenBugTest,\
+  MissingAccountOptionalBugTest,SavingsDepositLimitMessageBugTest,\
+  SavingsWithdrawalTimezoneBugTest,DepositValidatorOriginBugTest,\
+  TransactionValidateActiveAccountBugTest,SavingsTransferActiveUserBugTest,\
+  CheckingTransferActiveUserBugTest' test
+
+Antes das correções:
+
+  Tests run: 14, Failures: 13, Errors: 0, Skipped: 0
+
+Observação:
+  O 14º teste (SavingsTransferActiveUserBugTest) foi ajustado para simular o
+  retorno real do JPA (null para usuário inexistente). Assim ele ficou vermelho
+  pelo motivo correto, e não por um mock irreal.
+
+Depois das correções:
+
+  Tests run: 14, Failures: 0, Errors: 0, Skipped: 0
+  BUILD SUCCESS
+
+11.2 SUÍTE COMPLETA
+-------------------
+Comando:
+
+  ./mvnw clean test
+
+Resultado final:
+
+  Tests run: 112, Failures: 0, Errors: 0, Skipped: 0
+  BUILD SUCCESS
+
+11.3 EVOLUÇÃO
+-------------
+Momento                              Testes   Falhas   Observação
+--------------------------------------------------------------------------------
+Baseline inicial                     90       31       Sem PostgreSQL em localhost:5555
+Após fases 1 e 2                     98       0        Ainda dependia de infraestrutura
+Com H2 + correções de contrato       98       0        Contexto completo verde
+Após centralização inicial           98       0        28 classes em tests/
+Após novo ciclo                     112       0        +14 reprodutores
+Após reorganização por pacotes      112       0        Testes espelhando src/main
+
+================================================================================
+12. ARQUIVOS ALTERADOS
+================================================================================
+
+12.1 BUILD E INFRAESTRUTURA DE TESTE
+------------------------------------
+  pom.xml
+    - dependência H2 com escopo test;
+    - lombok-mapstruct-binding 0.2.0 nos annotationProcessorPaths.
+
+  src/test/resources/application.properties
+    - ativa o profile test.
+
+  src/test/resources/application-test.yml
+    - H2 em memória, schema do Batch, job desabilitado.
+
+12.2 CÓDIGO DE PRODUÇÃO
+-----------------------
+  src/main/java/.../model/AlertAML.java
+    - accountId correto e null-safe.
+
+  src/main/java/.../model/User.java
+    - isEnabled() devolve isActive.
+
+  src/main/java/.../service/AuthenticationService.java
+    - refresh token inválido lança BadCredentialsException.
+
+  src/main/java/.../service/SavingsAccountService.java
+    - getById com EntityNotFoundException;
+    - transferência transacional e com TRANSFERENCIA explícita;
+    - mensagem do limite de depósito corrigida;
+    - saque com America/Sao_Paulo.
+
+  src/main/java/.../service/CheckingAccountService.java
+    - transferência transacional e com TRANSFERENCIA explícita;
+    - saque com America/Sao_Paulo.
+
+  src/main/java/.../service/TransferService.java
+    - rejeita valor nulo/zero/negativo;
+    - débito e crédito separados em debit() e credit().
+
+  src/main/java/.../service/UserService.java
+    - senha codificada no update.
+
+  src/main/java/.../utils/SavingsAccountValidate.java
+    - Optional com orElseThrow;
+    - validação de usuário pelo dono da conta.
+
+  src/main/java/.../utils/CheckingAccountValidate.java
+    - Optional com orElseThrow;
+    - negação correta em existsBy...;
+    - valor positivo com <= 0;
+    - validação de usuário pelo dono da conta.
+
+  src/main/java/.../utils/DepositValidator.java
+    - comparação de origem com EnumOrigin.DINHEIRO_FISICO.
+
+  src/main/java/.../utils/TransactionValidate.java
+    - checagem de conta ativa corrigida.
+
+  src/main/java/.../mapper/SavingsAccountMapper.java
+    - isActive constante true.
+
+  src/main/java/.../dto/DepositRequestDTO.java
+    - @NotBlank trocado por @NotNull nos UUIDs.
+
+  src/main/java/.../config/SecurityConfiguration.java
+    - rotas de criação antes de /{id};
+    - ordem dos matchers da mais específica para a mais genérica.
+
+  src/main/java/.../global/exception/GlobalExceptionHandler.java
+    - imports corretos de AuthenticationException e AccessDeniedException.
+
+  src/main/java/.../batch/config/BatchConfig.java
+    - taxa por conta;
+    - @Scheduled removido;
+    - reader com @StepScope.
+
+12.3 TESTES
+-----------
+Base: src/test/java/com/github/kiraruto/sistemaBancario/
+
+Novos reprodutores do novo ciclo:
+
+  model/AlertAMLAccountIdBugTest.java
+  service/RefreshTokenInvalidTokenBugTest.java
+  utils/MissingAccountOptionalBugTest.java
+  service/SavingsDepositLimitMessageBugTest.java
+  service/SavingsWithdrawalTimezoneBugTest.java
+  utils/DepositValidatorOriginBugTest.java
+  utils/TransactionValidateActiveAccountBugTest.java
+  utils/SavingsTransferActiveUserBugTest.java
+  utils/CheckingTransferActiveUserBugTest.java
+
+Testes das fases 1 e 2:
+
+  utils/CheckingAccountValidateTransferPositiveBugTest.java
+  utils/CheckingAccountValidateExistingAccountBugTest.java
+  service/TransferServiceNegativeAmountBugTest.java
+  model/UserDisabledAuthenticationBugTest.java
+  service/UserServiceUpdatePasswordBugTest.java
+  config/SecurityMatcherPrecedenceBugTest.java
+  global/exception/GlobalExceptionHandlerSecurityExceptionBugTest.java
+  batch/config/InterestRateCalculationBugTest.java
+  service/CheckingAccountTransferTransactionBugTest.java
+
+Apoio:
+  controller/SecurityProbeController.java
+
+Classes existentes:
+  28 classes de teste distribuídas nos pacotes model/, service/, utils/,
+  controller/, config/, global/exception/, batch/config/ e na raiz, seguindo
+  a mesma organização do código principal.
+
+================================================================================
+13. RECOMENDAÇÕES E PONTOS DE ATENÇÃO
+================================================================================
+
+1. Testcontainers
+   O H2 é ótimo para velocidade, mas não é idêntico ao PostgreSQL. Para testes
+   de integração mais fiéis, considerar Testcontainers com PostgreSQL.
+
+2. Renomear WithdrawRequestDTO
+   O nome sugere saque, mas o DTO é usado em depósitos e transferências. Um nome
+   como AccountMovementRequestDTO reduziria a confusão que gerou o candidato
+   rejeitado na seção 10.
+
+3. Padronizar fusos com Clock
+   Ainda existem pontos usando LocalDateTime.now() sem fuso, por exemplo:
+     - AuditService
+     - AlertAML (data do alerta)
+     - BankHoursService
+     - DepositValidator
+   O ideal é injetar um Clock e usar sempre America/Sao_Paulo (ou o fuso de
+   negócio definido), para que os testes possam controlar o tempo.
+
+4. Revisar o Optional.get() restante
+   Em DepositValidator.validateDepositoTransiction ainda existe:
+
+     Optional<SavingsAccount> savingsAccount =
+             savingsAccountRepository.findById(withdrawRequestDTO.idAccount());
+     var sa = savingsAccount.get();
+
+   Se a conta não existir nesse caminho, ainda pode ocorrer
+   NoSuchElementException (HTTP 500). Recomendo aplicar o mesmo padrão
+   orElseThrow(new EntityNotFoundException(...)) usado nos outros validadores.
+
+5. Alinhar o limite de depósito
+   A condição atual é "maior que 10.000", mas a descrição da transação fala em
+   "acima de R$ 9.999". Se a regra de negócio for "a partir de 10.000", vale
+   ajustar a condição e o texto juntos.
+
+6. Substituir isActiveById por consultas derivadas
+   O método isActiveById recebe um UUID e retorna Boolean. É fácil confundir id
+   de conta com id de usuário, como aconteceu no bug 8. Uma consulta derivada
+   em User/Account com Optional deixaria o tipo mais claro e evitaria null.
+
+7. Testes de segurança de integração
+   Os testes de matcher usam controller de sonda. Vale adicionar testes de
+   integração com as rotas reais para cobrir 401/403 de ponta a ponta.
+
+8. Manter o profile test como padrão da suíte
+   A configuração atual já faz isso via src/test/resources/application.properties.
+   Evitar voltar a apontar testes para o PostgreSQL de produção.
+
+================================================================================
+14. COMO REPRODUZIR
+================================================================================
+
+14.1 SUÍTE COMPLETA
+-------------------
+  cd "/home/gustavo/Área de trabalho/curso/Programar Sozinho/Sistema bancário"
+  ./mvnw clean test
+
+14.2 SOMENTE OS NOVOS REPRODUTORES
+----------------------------------
+  ./mvnw -Dtest='AlertAMLAccountIdBugTest,RefreshTokenInvalidTokenBugTest,\
+  MissingAccountOptionalBugTest,SavingsDepositLimitMessageBugTest,\
+  SavingsWithdrawalTimezoneBugTest,DepositValidatorOriginBugTest,\
+  TransactionValidateActiveAccountBugTest,SavingsTransferActiveUserBugTest,\
+  CheckingTransferActiveUserBugTest' test
+
+14.3 RESULTADO ESPERADO
+-----------------------
+  Tests run: 112, Failures: 0, Errors: 0, Skipped: 0
+  BUILD SUCCESS
+
+================================================================================
+15. CONCLUSÃO
+================================================================================
+
+O trabalho deixou o projeto em um estado bem mais confiável:
+
+  - a suíte não depende mais do PostgreSQL local;
+  - o build do MapStruct com Lombok está correto;
+  - os testes estão organizados por pacotes, espelhando o código principal;
+  - 17 bugs de lógica foram provados com teste e corrigidos;
+  - 5 defeitos de contrato foram corrigidos;
+  - 1 candidato foi investigado e descartado com justificativa;
+  - a suíte completa terminou com 112 testes, 0 falhas, 0 erros e 0 ignorados.
+
+O próximo passo natural é tratar os pontos de atenção da seção 13, especialmente
+o Optional.get() restante no DepositValidator e a padronização de datas com
+Clock.
+
+================================================================================
+FIM DO RELATÓRIO
+================================================================================

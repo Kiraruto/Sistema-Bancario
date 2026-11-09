@@ -1,0 +1,26 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:sistema_bancario_test;DB_CLOSE_DELAY=-1;NON_KEYWORDS=TRANSACTION
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+
+  jpa:
+    show-sql: false
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        format_sql: false
+
+  sql:
+    init:
+      mode: never
+
+  batch:
+    jdbc:
+      initialize-schema: always
+      schema: classpath:org/springframework/batch/core/schema-h2.sql
+      table-prefix: BATCH_
+    job:
+      enabled: false

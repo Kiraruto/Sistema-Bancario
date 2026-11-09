@@ -1,7 +1,10 @@
 package com.github.kiraruto.sistemaBancario.service;
+import com.github.kiraruto.sistemaBancario.service.TransactionService;
 
+import com.github.kiraruto.sistemaBancario.model.SavingsAccount;
 import com.github.kiraruto.sistemaBancario.model.Transaction;
 import com.github.kiraruto.sistemaBancario.model.enums.EnumStatus;
+import com.github.kiraruto.sistemaBancario.repository.SavingsAccountRepository;
 import com.github.kiraruto.sistemaBancario.repository.TransactionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -13,6 +16,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -27,21 +31,33 @@ class TransactionServiceTest {
     @Mock
     private TransactionRepository transactionRepository;
 
+    @Mock
+    private SavingsAccountRepository savingsAccountRepository;
+
     @InjectMocks
     private TransactionService transactionService;
 
     private UUID transactionId;
+    private UUID receiveAccountId;
     private Transaction pendingTransaction;
     private Transaction completedTransaction;
     private Transaction failedTransaction;
+    private SavingsAccount receiveAccount;
 
     @BeforeEach
     void setUp() {
         transactionId = UUID.randomUUID();
+        receiveAccountId = UUID.randomUUID();
+
+        receiveAccount = new SavingsAccount();
+        receiveAccount.setId(receiveAccountId);
+        receiveAccount.setBalance(BigDecimal.valueOf(100));
 
         pendingTransaction = new Transaction();
         pendingTransaction.setId(transactionId);
         pendingTransaction.setStatus(EnumStatus.PENDENTE);
+        pendingTransaction.setAccountReceive(receiveAccountId);
+        pendingTransaction.setAmount(BigDecimal.valueOf(10));
 
         completedTransaction = new Transaction();
         completedTransaction.setId(transactionId);
@@ -59,8 +75,8 @@ class TransactionServiceTest {
         @Test
         @DisplayName("Should change status to COMPLETED when transaction exists")
         void shouldChangeStatusToCompleted() {
-            when(transactionRepository.existsById(transactionId)).thenReturn(true);
             when(transactionRepository.findById(transactionId)).thenReturn(Optional.of(pendingTransaction));
+            when(savingsAccountRepository.findById(receiveAccountId)).thenReturn(Optional.of(receiveAccount));
             when(transactionRepository.save(any(Transaction.class))).thenAnswer(inv -> inv.getArgument(0));
 
             transactionService.completed(transactionId);
@@ -74,7 +90,7 @@ class TransactionServiceTest {
         @DisplayName("Should throw exception when transaction ID doesn't exist")
         void shouldThrowWhenTransactionNotFound() {
             UUID nonExistentId = UUID.randomUUID();
-            when(transactionRepository.existsById(nonExistentId)).thenReturn(false);
+            when(transactionRepository.findById(nonExistentId)).thenReturn(Optional.empty());
 
             Exception exception = assertThrows(
                     IllegalArgumentException.class,
@@ -88,8 +104,10 @@ class TransactionServiceTest {
         @Test
         @DisplayName("Should maintain COMPLETED status when transaction is already completed")
         void shouldMaintainStatusWhenAlreadyCompleted() {
-            when(transactionRepository.existsById(transactionId)).thenReturn(true);
+            completedTransaction.setAccountReceive(receiveAccountId);
+            completedTransaction.setAmount(BigDecimal.ZERO);
             when(transactionRepository.findById(transactionId)).thenReturn(Optional.of(completedTransaction));
+            when(savingsAccountRepository.findById(receiveAccountId)).thenReturn(Optional.of(receiveAccount));
             when(transactionRepository.save(any(Transaction.class))).thenAnswer(inv -> inv.getArgument(0));
 
             transactionService.completed(transactionId);
@@ -102,8 +120,8 @@ class TransactionServiceTest {
         @Test
         @DisplayName("Should throw exception when repository save fails")
         void shouldThrowWhenSaveFails() {
-            when(transactionRepository.existsById(transactionId)).thenReturn(true);
             when(transactionRepository.findById(transactionId)).thenReturn(Optional.of(pendingTransaction));
+            when(savingsAccountRepository.findById(receiveAccountId)).thenReturn(Optional.of(receiveAccount));
             when(transactionRepository.save(any(Transaction.class))).thenThrow(new RuntimeException("Database error"));
 
             assertThrows(RuntimeException.class,
@@ -118,7 +136,6 @@ class TransactionServiceTest {
         @Test
         @DisplayName("Should change status to FAILED when transaction exists")
         void shouldChangeStatusToFailed() {
-            when(transactionRepository.existsById(transactionId)).thenReturn(true);
             when(transactionRepository.findById(transactionId)).thenReturn(Optional.of(pendingTransaction));
             when(transactionRepository.save(any(Transaction.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -133,7 +150,7 @@ class TransactionServiceTest {
         @DisplayName("Should throw exception when transaction ID doesn't exist")
         void shouldThrowWhenTransactionNotFound() {
             UUID nonExistentId = UUID.randomUUID();
-            when(transactionRepository.existsById(nonExistentId)).thenReturn(false);
+            when(transactionRepository.findById(nonExistentId)).thenReturn(Optional.empty());
 
             Exception exception = assertThrows(
                     IllegalArgumentException.class,
@@ -147,7 +164,6 @@ class TransactionServiceTest {
         @Test
         @DisplayName("Should maintain FAILED status when transaction is already failed")
         void shouldMaintainStatusWhenAlreadyFailed() {
-            when(transactionRepository.existsById(transactionId)).thenReturn(true);
             when(transactionRepository.findById(transactionId)).thenReturn(Optional.of(failedTransaction));
             when(transactionRepository.save(any(Transaction.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -161,14 +177,12 @@ class TransactionServiceTest {
         @Test
         @DisplayName("Should verify correct repository call sequence")
         void shouldVerifyRepositoryCallSequence() {
-            when(transactionRepository.existsById(transactionId)).thenReturn(true);
             when(transactionRepository.findById(transactionId)).thenReturn(Optional.of(pendingTransaction));
             when(transactionRepository.save(any(Transaction.class))).thenAnswer(inv -> inv.getArgument(0));
 
             transactionService.failure(transactionId);
 
             InOrder inOrder = inOrder(transactionRepository);
-            inOrder.verify(transactionRepository).existsById(transactionId);
             inOrder.verify(transactionRepository).findById(transactionId);
             inOrder.verify(transactionRepository).save(any(Transaction.class));
         }
@@ -176,7 +190,6 @@ class TransactionServiceTest {
         @Test
         @DisplayName("Should throw exception when repository save fails")
         void shouldThrowWhenSaveFails() {
-            when(transactionRepository.existsById(transactionId)).thenReturn(true);
             when(transactionRepository.findById(transactionId)).thenReturn(Optional.of(pendingTransaction));
             when(transactionRepository.save(any(Transaction.class))).thenThrow(new RuntimeException("Database error"));
 

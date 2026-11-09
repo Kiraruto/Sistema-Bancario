@@ -1,4 +1,5 @@
 package com.github.kiraruto.sistemaBancario.service;
+import com.github.kiraruto.sistemaBancario.service.AuditService;
 
 import com.github.kiraruto.sistemaBancario.exceptions.InvalidAccountIdException;
 import com.github.kiraruto.sistemaBancario.exceptions.InvalidAmountException;

@@ -7,12 +7,12 @@ import com.github.kiraruto.sistemaBancario.dto.WithdrawalRequestDTO;
 import com.github.kiraruto.sistemaBancario.model.CheckingAccount;
 import com.github.kiraruto.sistemaBancario.repository.CheckingAccountRepository;
 import com.github.kiraruto.sistemaBancario.repository.UserRepository;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
-import java.util.Optional;
 import java.util.UUID;
 
 @Component
@@ -53,15 +53,20 @@ public class CheckingAccountValidate {
             throw new IllegalArgumentException("Não existe conta com este cpf");
         }
 
-        if (!Boolean.TRUE.equals(userRepository.isActiveById(depositRequestDTO.accountSends()))) {
+        CheckingAccount sender = checkingAccountRepository.findById(depositRequestDTO.accountSends())
+                .orElseThrow(() -> new EntityNotFoundException("A conta de origem não existe"));
+        CheckingAccount receiver = checkingAccountRepository.findById(depositRequestDTO.accountReceive())
+                .orElseThrow(() -> new EntityNotFoundException("A conta de destino não existe"));
+
+        if (!Boolean.TRUE.equals(userRepository.isActiveById(sender.getUser().getId()))) {
             throw new IllegalArgumentException("O usuario que mandou o dinheiro não está ativo");
         }
 
-        if (!Boolean.TRUE.equals(userRepository.isActiveById(depositRequestDTO.accountReceive()))) {
+        if (!Boolean.TRUE.equals(userRepository.isActiveById(receiver.getUser().getId()))) {
             throw new IllegalArgumentException("O usuario que recebeu o dinheiro não está ativo");
         }
 
-        if (depositRequestDTO.balance().compareTo(BigDecimal.ZERO) >= 0) {
+        if (depositRequestDTO.balance().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("O valor do depósito deve ser positivo.");
         }
 
@@ -71,10 +76,10 @@ public class CheckingAccountValidate {
     }
 
     public CheckingAccount validateCheckingAccountWithdraw(@Valid WithdrawRequestDTO withdrawRequestDTO) {
-        Optional<CheckingAccount> checkingAccount = checkingAccountRepository.findById(withdrawRequestDTO.idAccount());
-        var ch = checkingAccount.get();
+        CheckingAccount ch = checkingAccountRepository.findById(withdrawRequestDTO.idAccount())
+                .orElseThrow(() -> new EntityNotFoundException("A conta corrente não existe"));
 
-        if (checkingAccountRepository.existsByFullNameAndEmailAndCpf(ch.getFullName(), ch.getEmail(), ch.getCpf())) {
+        if (!checkingAccountRepository.existsByFullNameAndEmailAndCpf(ch.getFullName(), ch.getEmail(), ch.getCpf())) {
             throw new IllegalArgumentException("Não existe conta com este nome, email ou cpf");
         }
 
@@ -112,10 +117,10 @@ public class CheckingAccountValidate {
     }
 
     public CheckingAccount validateCheckingAccountWithdrawal(@Valid WithdrawalRequestDTO withdrawalRequestDTO) {
-        Optional<CheckingAccount> checkingAccount = checkingAccountRepository.findById(withdrawalRequestDTO.idAccount());
-        var ch = checkingAccount.get();
+        CheckingAccount ch = checkingAccountRepository.findById(withdrawalRequestDTO.idAccount())
+                .orElseThrow(() -> new EntityNotFoundException("A conta corrente não existe"));
 
-        if (checkingAccountRepository.existsByFullNameAndEmailAndCpf(ch.getFullName(), ch.getEmail(), ch.getCpf())) {
+        if (!checkingAccountRepository.existsByFullNameAndEmailAndCpf(ch.getFullName(), ch.getEmail(), ch.getCpf())) {
             throw new IllegalArgumentException("Não existe conta com este nome, email ou cpf");
         }
 

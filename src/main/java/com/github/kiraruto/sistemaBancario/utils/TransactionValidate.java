@@ -35,7 +35,7 @@ public class TransactionValidate {
         SavingsAccount contaDestino = savingsAccountRepository.findById(UUID.fromString(contaDestinoId))
                 .orElseThrow(() -> new AccountNotFoundException("A conta com o id: " + contaDestinoId + " não foi encontrada"));
 
-        if (contaDestino.getIsActive()) {
+        if (!Boolean.TRUE.equals(contaDestino.getIsActive())) {
             return EnumStatus.FALHOU;
         }
 
