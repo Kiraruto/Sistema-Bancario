@@ -33,58 +33,6 @@ public class SecurityConfiguration {
             "/swagger-ui.html"
     };
 
-    private static final String[] ADMIN_PATHS = {
-            "/users",
-            "/users/**",
-            "/users/{id}/admin",
-            "/users/{id}/gerente",
-            "/users/{id}/disableUser",
-            "/users/{id}/activateUser",
-            "/transaction/**"
-    };
-
-    private static final String[] GERENTE_PATHS = {
-            "/savings-accounts",
-            "/checking-accounts"
-    };
-
-    private static final String[] CLIENTE_PATHS = {
-            "/savings-accounts/{id}",
-            "/savings-accounts/{id}/transactions",
-            "/checking-accounts/{id}",
-            "/checking-accounts/{id}/transactions"
-    };
-
-    private static final String[] ADMIN_GERENTE_PATHS = {
-            "/savings-accounts/**",
-            "/checking-accounts/**",
-            "/schedule",
-            "/schedule/**"
-    };
-
-    private static final String[] ADMIN_CLIENTE_PATHS = {
-            "/users/{id}/cliente",
-            "/savings-accounts/{id}/balance",
-            "/checking-accounts/{id}/balance"
-    };            // Todos os perfis
-
-
-    private static final String[] GERENTE_CLIENTE_PATHS = {
-            "/savings-accounts/{id}/deposit",
-            "/savings-accounts/{id}/withdrawal",
-            "/savings-accounts/transfer/savingsAccount",
-
-            "/checking-accounts/{id}/deposit",
-            "/checking-accounts/{id}/withdrawal",
-            "/checking-accounts/transfer/checkingAccount",
-
-            "/transfer"
-    };
-
-    private static final String[] ADMIN_GERENTE_CLIENTE_PATHS = {
-            "/users/{id}/update"
-    };
-
     /**
      * Rotas literais que precisam vir antes dos padroes "/{id}" para nao serem
      * capturadas por eles (ex.: "/savings-accounts/{id}" casaria com "/savings-accounts/create").
@@ -92,6 +40,49 @@ public class SecurityConfiguration {
     private static final String[] ADMIN_GERENTE_CREATE_PATHS = {
             "/savings-accounts/create",
             "/checking-accounts/create"
+    };
+
+    /**
+     * Rotas de conta usadas pelos tres perfis. Precisam vir antes dos matchers
+     * amplos de ADMIN/GERENTE para que o CLIENTE nao seja bloqueado por eles.
+     */
+    private static final String[] ALL_ROLES_PATHS = {
+            "/users/{id}/update",
+
+            "/savings-accounts/{id}",
+            "/savings-accounts/{id}/transactions",
+            "/savings-accounts/{id}/balance",
+            "/savings-accounts/{id}/deposit",
+            "/savings-accounts/{id}/withdrawal",
+            "/savings-accounts/transfer/savingsAccount",
+
+            "/checking-accounts/{id}",
+            "/checking-accounts/{id}/transactions",
+            "/checking-accounts/{id}/balance",
+            "/checking-accounts/{id}/deposit",
+            "/checking-accounts/{id}/withdrawal",
+            "/checking-accounts/transfer/checkingAccount",
+
+            "/transfer"
+    };
+
+    private static final String[] ADMIN_CLIENTE_PATHS = {
+            "/users/{id}/cliente"
+    };
+
+    private static final String[] ADMIN_PATHS = {
+            "/users",
+            "/users/**",
+            "/transaction/**"
+    };
+
+    private static final String[] ADMIN_GERENTE_PATHS = {
+            "/savings-accounts",
+            "/savings-accounts/**",
+            "/checking-accounts",
+            "/checking-accounts/**",
+            "/schedule",
+            "/schedule/**"
     };
 
     private final JWTAuthenticationFilter jwtAuthenticationFilter;
@@ -105,13 +96,10 @@ public class SecurityConfiguration {
                 )
                 .authorizeHttpRequests(request -> request
                         .requestMatchers(PUBLIC_PATHS).permitAll()
-                        .requestMatchers(ADMIN_GERENTE_CLIENTE_PATHS).hasAnyAuthority(EnumUserRole.ADMIN.name(), EnumUserRole.GERENTE.name(), EnumUserRole.CLIENTE.name())
                         .requestMatchers(ADMIN_GERENTE_CREATE_PATHS).hasAnyAuthority(EnumUserRole.ADMIN.name(), EnumUserRole.GERENTE.name())
+                        .requestMatchers(ALL_ROLES_PATHS).hasAnyAuthority(EnumUserRole.ADMIN.name(), EnumUserRole.GERENTE.name(), EnumUserRole.CLIENTE.name())
                         .requestMatchers(ADMIN_CLIENTE_PATHS).hasAnyAuthority(EnumUserRole.ADMIN.name(), EnumUserRole.CLIENTE.name())
-                        .requestMatchers(GERENTE_CLIENTE_PATHS).hasAnyAuthority(EnumUserRole.GERENTE.name(), EnumUserRole.CLIENTE.name())
-                        .requestMatchers(CLIENTE_PATHS).hasAuthority(EnumUserRole.CLIENTE.name())
                         .requestMatchers(ADMIN_PATHS).hasAuthority(EnumUserRole.ADMIN.name())
-                        .requestMatchers(GERENTE_PATHS).hasAuthority(EnumUserRole.GERENTE.name())
                         .requestMatchers(ADMIN_GERENTE_PATHS).hasAnyAuthority(EnumUserRole.ADMIN.name(), EnumUserRole.GERENTE.name())
                         .anyRequest().authenticated())
                 .sessionManagement(maneger -> maneger.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
