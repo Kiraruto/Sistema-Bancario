@@ -3,16 +3,22 @@ package com.github.kiraruto.sistemaBancario.service;
 import com.github.kiraruto.sistemaBancario.dto.TransferRequestDTO;
 import com.github.kiraruto.sistemaBancario.model.CheckingAccount;
 import com.github.kiraruto.sistemaBancario.model.SavingsAccount;
+import com.github.kiraruto.sistemaBancario.model.Transaction;
 import com.github.kiraruto.sistemaBancario.model.enums.AccountType;
+import com.github.kiraruto.sistemaBancario.model.enums.EnumOrigin;
+import com.github.kiraruto.sistemaBancario.model.enums.EnumStatus;
+import com.github.kiraruto.sistemaBancario.model.enums.EnumTransactionType;
 import com.github.kiraruto.sistemaBancario.repository.CheckingAccountRepository;
 import com.github.kiraruto.sistemaBancario.repository.SavingsAccountRepository;
+import com.github.kiraruto.sistemaBancario.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.ReentrantLock;
 
 @Service
 @RequiredArgsConstructor
@@ -20,15 +26,14 @@ public class TransferService {
 
     private final CheckingAccountRepository checkingAccountRepository;
     private final SavingsAccountRepository savingAccountRepository;
+    private final TransactionRepository transactionRepository;
     private final AccountAccessService accountAccessService;
-    private final ConcurrentHashMap<UUID, ReentrantLock> locks = new ConcurrentHashMap<>();
 
-    private ReentrantLock getLock(UUID id) {
-        return locks.computeIfAbsent(id, k -> new ReentrantLock());
-    }
-
+    @Transactional
     public void transfer(TransferRequestDTO dto) {
-        if (dto.amount() == null || dto.amount().compareTo(BigDecimal.ZERO) <= 0) {
+        BigDecimal amount = dto.amount();
+
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("O valor da transferência deve ser positivo");
         }
 
@@ -37,61 +42,72 @@ public class TransferService {
             case SAVING -> accountAccessService.checkSavingsAccountAccess(dto.fromId());
         }
 
-        UUID firstLockId = dto.fromId().compareTo(dto.toId()) < 0 ? dto.fromId() : dto.toId();
-        UUID secondLockId = dto.fromId().compareTo(dto.toId()) < 0 ? dto.toId() : dto.fromId();
+        // Bloqueia as contas sempre na mesma ordem para evitar deadlock entre transferências opostas.
+        boolean fromIsFirst = dto.fromId().compareTo(dto.toId()) <= 0;
 
-        ReentrantLock firstLock = getLock(firstLockId);
-        ReentrantLock secondLock = getLock(secondLockId);
+        Object first = lockAccount(
+                fromIsFirst ? dto.fromId() : dto.toId(),
+                fromIsFirst ? dto.fromType() : dto.toType()
+        );
+        Object second = lockAccount(
+                fromIsFirst ? dto.toId() : dto.fromId(),
+                fromIsFirst ? dto.toType() : dto.fromType()
+        );
 
-        firstLock.lock();
-        try {
-            secondLock.lock();
-            try {
-                debit(dto.fromId(), dto.fromType(), dto.amount());
-                credit(dto.toId(), dto.toType(), dto.amount());
-            } finally {
-                secondLock.unlock();
+        Object source = fromIsFirst ? first : second;
+        Object target = fromIsFirst ? second : first;
+
+        debit(source, amount);
+        credit(target, amount);
+
+        transactionRepository.save(registerTransfer(dto, amount));
+    }
+
+    private Object lockAccount(UUID id, AccountType type) {
+        return switch (type) {
+            case CHECKING -> checkingAccountRepository.findByIdForUpdate(id)
+                    .orElseThrow(() -> new IllegalArgumentException("Conta corrente não encontrada"));
+            case SAVING -> savingAccountRepository.findByIdForUpdate(id)
+                    .orElseThrow(() -> new IllegalArgumentException("Conta poupança não encontrada"));
+        };
+    }
+
+    private void debit(Object account, BigDecimal amount) {
+        if (account instanceof CheckingAccount checkingAccount) {
+            if (checkingAccount.getBalance().compareTo(amount) < 0) {
+                throw new IllegalArgumentException("Saldo insuficiente na conta corrente");
             }
-        } finally {
-            firstLock.unlock();
+            checkingAccount.setBalance(checkingAccount.getBalance().subtract(amount));
+            checkingAccountRepository.save(checkingAccount);
+        } else if (account instanceof SavingsAccount savingsAccount) {
+            if (savingsAccount.getBalance().compareTo(amount) < 0) {
+                throw new IllegalArgumentException("Saldo insuficiente na conta poupança");
+            }
+            savingsAccount.setBalance(savingsAccount.getBalance().subtract(amount));
+            savingAccountRepository.save(savingsAccount);
         }
     }
 
-    private void debit(UUID id, AccountType type, BigDecimal amount) {
-        switch (type) {
-            case CHECKING -> {
-                CheckingAccount account = checkingAccountRepository.findById(id)
-                        .orElseThrow(() -> new IllegalArgumentException("Conta corrente não encontrada"));
-                if (account.getBalance().compareTo(amount) < 0)
-                    throw new IllegalArgumentException("Saldo insuficiente na conta corrente");
-                account.setBalance(account.getBalance().subtract(amount));
-                checkingAccountRepository.save(account);
-            }
-            case SAVING -> {
-                SavingsAccount account = savingAccountRepository.findById(id)
-                        .orElseThrow(() -> new IllegalArgumentException("Conta poupança não encontrada"));
-                if (account.getBalance().compareTo(amount) < 0)
-                    throw new IllegalArgumentException("Saldo insuficiente na conta poupança");
-                account.setBalance(account.getBalance().subtract(amount));
-                savingAccountRepository.save(account);
-            }
+    private void credit(Object account, BigDecimal amount) {
+        if (account instanceof CheckingAccount checkingAccount) {
+            checkingAccount.setBalance(checkingAccount.getBalance().add(amount));
+            checkingAccountRepository.save(checkingAccount);
+        } else if (account instanceof SavingsAccount savingsAccount) {
+            savingsAccount.setBalance(savingsAccount.getBalance().add(amount));
+            savingAccountRepository.save(savingsAccount);
         }
     }
 
-    private void credit(UUID id, AccountType type, BigDecimal amount) {
-        switch (type) {
-            case CHECKING -> {
-                CheckingAccount account = checkingAccountRepository.findById(id)
-                        .orElseThrow(() -> new IllegalArgumentException("Conta corrente não encontrada"));
-                account.setBalance(account.getBalance().add(amount));
-                checkingAccountRepository.save(account);
-            }
-            case SAVING -> {
-                SavingsAccount account = savingAccountRepository.findById(id)
-                        .orElseThrow(() -> new IllegalArgumentException("Conta poupança não encontrada"));
-                account.setBalance(account.getBalance().add(amount));
-                savingAccountRepository.save(account);
-            }
-        }
+    private Transaction registerTransfer(TransferRequestDTO dto, BigDecimal amount) {
+        Transaction transaction = new Transaction();
+        transaction.setAccountSends(dto.fromId());
+        transaction.setAccountReceive(dto.toId());
+        transaction.setTransactionType(EnumTransactionType.TRANSFERENCIA);
+        transaction.setAmount(amount);
+        transaction.setTransactionDate(LocalDateTime.now(ZoneId.of("America/Sao_Paulo")));
+        transaction.setStatus(EnumStatus.CONCLUIDA);
+        transaction.setOrigin(EnumOrigin.TED);
+        transaction.setDescription("Transferência entre contas");
+        return transaction;
     }
 }

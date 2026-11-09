@@ -41,6 +41,9 @@ class TransferServiceNegativeAmountBugTest {
     @Mock
     private AccountAccessService accountAccessService;
 
+    @Mock
+    private com.github.kiraruto.sistemaBancario.repository.TransactionRepository transactionRepository;
+
     private TransferService transferService;
 
     @BeforeEach
@@ -48,6 +51,7 @@ class TransferServiceNegativeAmountBugTest {
         transferService = new TransferService(
                 checkingAccountRepository,
                 savingAccountRepository,
+                transactionRepository,
                 accountAccessService
         );
     }
