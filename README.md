@@ -210,11 +210,13 @@ Na primeira inicialização, se não existir nenhum usuário `ADMIN`, a aplicaç
 | Campo | Valor |
 |-------|-------|
 | Username | `admin` |
-| Senha | `admin` |
+| Senha | *definida no código-fonte — troque imediatamente* |
 | E-mail | `admin@gmail.com` |
 | Perfil | `ADMIN` |
 
-> ⚠️ **Troque a senha do admin antes de qualquer uso real.**
+> ⚠️ **A senha padrão não é documentada aqui por segurança. Consulte
+> `Application.java`, troque-a antes do primeiro uso e nunca use a padrão em
+> produção.**
 
 ---
 
@@ -307,7 +309,7 @@ Content-Type: application/json
 
 {
   "username": "admin",
-  "password": "admin"
+  "password": "<SUA_SENHA_DO_ADMIN>"
 }
 ```
 
@@ -656,7 +658,7 @@ Mesmos campos de `WithdrawRequestDTO`. Usado nos saques.
 ```bash
 curl -X POST http://localhost:8080/auth/signin \
   -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"admin"}'
+  -d '{"username":"admin","password":"<SUA_SENHA_DO_ADMIN>"}'
 ```
 
 Guarde o `token` retornado:
@@ -675,7 +677,7 @@ curl -X POST http://localhost:8080/users \
     "username": "joao",
     "firstName": "João",
     "lastName": "Silva",
-    "password": "senha123",
+    "password": "<SENHA_FORTE_DO_USUARIO>",
     "email": "joao@exemplo.com"
   }'
 ```
@@ -883,7 +885,7 @@ Sistema-Bancario/
 
 Este é um projeto educacional. Antes de usar em produção, revise os pontos abaixo:
 
-1. **Usuário admin padrão** (`admin`/`admin`) é criado automaticamente. Troque a senha.
+1. **Usuário admin padrão** é criado automaticamente. Troque a senha imediatamente.
 2. **Scripts SQL manuais**: o projeto não usa Flyway/Liquibase. A ordem e a FK circular entre `users` e `scheduled_transfer` exigem atenção (ver [Banco de dados](#-banco-de-dados)).
 3. **Locks em memória**: `ReentrantLock` e `ConcurrentHashMap` funcionam em uma única instância. Em cluster, use locks distribuídos (ex.: Redis ou banco).
 4. **`POST /transfer` não valida o dono da conta de origem**: qualquer usuário com perfil `GERENTE` ou `CLIENTE` pode informar qualquer `fromId`. Adicione uma verificação de propriedade.
