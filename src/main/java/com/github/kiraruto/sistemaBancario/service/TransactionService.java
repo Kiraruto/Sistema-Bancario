@@ -1,20 +1,22 @@
 package com.github.kiraruto.sistemaBancario.service;
 
 import com.github.kiraruto.sistemaBancario.exceptions.PendingTransactionNotFoundException;
+import com.github.kiraruto.sistemaBancario.model.CheckingAccount;
 import com.github.kiraruto.sistemaBancario.model.SavingsAccount;
 import com.github.kiraruto.sistemaBancario.model.Transaction;
 import com.github.kiraruto.sistemaBancario.model.enums.EnumStatus;
+import com.github.kiraruto.sistemaBancario.model.enums.EnumTransactionType;
+import com.github.kiraruto.sistemaBancario.repository.CheckingAccountRepository;
 import com.github.kiraruto.sistemaBancario.repository.SavingsAccountRepository;
 import com.github.kiraruto.sistemaBancario.repository.TransactionRepository;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.ReentrantLock;
 
 @Service
 @RequiredArgsConstructor
@@ -22,53 +24,41 @@ public class TransactionService {
 
     private final TransactionRepository transactionRespository;
     private final SavingsAccountRepository savingsAccountRepository;
-
-    private final ConcurrentHashMap<UUID, ReentrantLock> locks = new ConcurrentHashMap<>();
+    private final CheckingAccountRepository checkingAccountRepository;
 
     @Transactional
     public void completed(UUID transactionId) {
-        ReentrantLock lock = locks.computeIfAbsent(transactionId, k -> new ReentrantLock());
+        Transaction transaction = transactionRespository.findByIdForUpdate(transactionId)
+                .orElseThrow(() -> new IllegalArgumentException("O Id não existe"));
 
-        lock.lock();
-        try {
-            var transaction = transactionRespository.findById(transactionId)
-                    .orElseThrow(() -> new IllegalArgumentException("O Id não existe"));
-
-            SavingsAccount sa = savingsAccountRepository.findById(transaction.getAccountReceive())
-                    .orElseThrow(() -> new IllegalArgumentException("Conta de destino não encontrada: " + transaction.getAccountReceive()));
-
-            BigDecimal newBalance = sa.getBalance().add(transaction.getAmount());
-            sa.setBalance(newBalance);
-
-            savingsAccountRepository.save(sa);
-
-            transaction.setStatus(EnumStatus.CONCLUIDA);
-            transaction.setDescription("Depósito");
-
-            transactionRespository.save(transaction);
-        } finally {
-            lock.unlock();
-            locks.remove(transactionId, lock);
+        if (transaction.getStatus() != EnumStatus.PENDENTE) {
+            throw new IllegalStateException("Somente transações pendentes podem ser concluídas.");
         }
+
+        if (transaction.getTransactionType() != EnumTransactionType.DEPOSITO) {
+            throw new IllegalStateException("Somente depósitos pendentes podem ser concluídos.");
+        }
+
+        creditDestinationAccount(transaction.getAccountReceive(), transaction.getAmount());
+
+        transaction.setStatus(EnumStatus.CONCLUIDA);
+        transaction.setDescription("Depósito");
+        transactionRespository.save(transaction);
     }
 
+    @Transactional
     public void failure(UUID transactionId) {
-        ReentrantLock lock = locks.computeIfAbsent(transactionId, k -> new ReentrantLock());
+        Transaction transaction = transactionRespository.findByIdForUpdate(transactionId)
+                .orElseThrow(() -> new IllegalArgumentException("O Id não existe"));
 
-        lock.lock();
-        try {
-            var transaction = transactionRespository.findById(transactionId)
-                    .orElseThrow(() -> new IllegalArgumentException("O Id não existe"));
-
-            transaction.setStatus(EnumStatus.FALHOU);
-            transaction.setDescription("Depósito falhou");
-            transactionRespository.save(transaction);
-        } finally {
-            lock.unlock();
-            locks.remove(transactionId, lock);
+        if (transaction.getStatus() != EnumStatus.PENDENTE) {
+            throw new IllegalStateException("Somente transações pendentes podem ser marcadas como falha.");
         }
-    }
 
+        transaction.setStatus(EnumStatus.FALHOU);
+        transaction.setDescription("Depósito falhou");
+        transactionRespository.save(transaction);
+    }
 
     public List<Transaction> getAllTransactionPendente(UUID uuid) {
         List<Transaction> transactions = transactionRespository.findAllByIdTypePendente(uuid, EnumStatus.PENDENTE);
@@ -78,5 +68,22 @@ public class TransactionService {
         }
 
         return transactions;
+    }
+
+    private void creditDestinationAccount(UUID accountId, BigDecimal amount) {
+        Optional<SavingsAccount> savingsAccount = savingsAccountRepository.findByIdForUpdate(accountId);
+
+        if (savingsAccount.isPresent()) {
+            SavingsAccount account = savingsAccount.get();
+            account.setBalance(account.getBalance().add(amount));
+            savingsAccountRepository.save(account);
+            return;
+        }
+
+        CheckingAccount checkingAccount = checkingAccountRepository.findByIdForUpdate(accountId)
+                .orElseThrow(() -> new IllegalArgumentException("Conta de destino não encontrada: " + accountId));
+
+        checkingAccount.setBalance(checkingAccount.getBalance().add(amount));
+        checkingAccountRepository.save(checkingAccount);
     }
 }
