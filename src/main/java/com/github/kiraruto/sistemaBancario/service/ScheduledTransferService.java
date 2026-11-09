@@ -37,6 +37,8 @@ public class ScheduledTransferService {
     }
 
     public ScheduledTransfer createScheduledTransfer(ScheduledTransferDTO dto) {
+        scheduleTransferValidate.validateTransfer(dto);
+
         ScheduledTransfer scheduledTransfer = new ScheduledTransfer();
         scheduledTransfer.setSourceAccount(dto.accountSends());
         scheduledTransfer.setTargetAccount(dto.accountReceive());
@@ -85,6 +87,8 @@ public class ScheduledTransferService {
     public ScheduledTransfer updateScheduledTransfer(UUID uuid, @Valid ScheduledTransferDTO scheduledTransferDTO) {
         ScheduledTransfer scheduledTransfer = scheduledTransferRepository.findById(uuid)
                 .orElseThrow(() -> new IllegalArgumentException("A transferência agendada com o ID fornecido não foi encontrada."));
+
+        scheduleTransferValidate.validateTransfer(scheduledTransferDTO);
 
         scheduledTransfer.setSourceAccount(scheduledTransferDTO.accountSends());
         scheduledTransfer.setTargetAccount(scheduledTransferDTO.accountReceive());
