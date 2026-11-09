@@ -3,15 +3,11 @@ package com.github.kiraruto.sistemaBancario.service;
 import com.github.kiraruto.sistemaBancario.dto.ScheduledTransferDTO;
 import com.github.kiraruto.sistemaBancario.mapper.ScheduledTransferMapper;
 import com.github.kiraruto.sistemaBancario.model.ScheduledTransfer;
-import com.github.kiraruto.sistemaBancario.model.Transaction;
 import com.github.kiraruto.sistemaBancario.model.User;
 import com.github.kiraruto.sistemaBancario.model.enums.EnumStatus;
-import com.github.kiraruto.sistemaBancario.repository.SavingsAccountRepository;
 import com.github.kiraruto.sistemaBancario.repository.ScheduledTransferRepository;
-import com.github.kiraruto.sistemaBancario.repository.TransactionRepository;
 import com.github.kiraruto.sistemaBancario.repository.UserRepository;
 import com.github.kiraruto.sistemaBancario.utils.ValidateScheduleTransfer;
-import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -19,7 +15,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -34,8 +29,7 @@ public class ScheduledTransferService {
     private final ValidateScheduleTransfer scheduleTransferValidate;
 
     private final ScheduledTransferRepository scheduledTransferRepository;
-    private final SavingsAccountRepository savingsAccountRepository;
-    private final TransactionRepository transactionRepository;
+    private final ScheduledTransferExecutor scheduledTransferExecutor;
     private final UserRepository userRepository;
 
     public List<ScheduledTransfer> getScheduled() {
@@ -62,11 +56,9 @@ public class ScheduledTransferService {
 
         for (ScheduledTransfer transfer : transfers) {
             try {
-                executeTransfer(transfer);
-                transfer.setStatus(EnumStatus.CONCLUIDA);
-                scheduledTransferRepository.save(transfer);
-                transferList.add(transfer);
+                transferList.add(scheduledTransferExecutor.execute(transfer));
             } catch (Exception e) {
+                logger.error("Falha ao executar transferência agendada {}: {}", transfer.getId(), e.getMessage());
                 transfer.setStatus(EnumStatus.FALHOU);
                 transfer.setRetryCount(transfer.getRetryCount() + 1);
                 scheduledTransferRepository.save(transfer);
@@ -78,40 +70,10 @@ public class ScheduledTransferService {
 
 
     @Scheduled(fixedRate = 300000)
-    @Transactional
     public void checkAndProcessTransfers() {
         logger.info("Verificando transferências agendadas...");
         List<ScheduledTransfer> processedTransfers = processScheduledTransfers();
         logger.info("Transferências processadas: " + processedTransfers.size());
-    }
-
-    private void executeTransfer(ScheduledTransfer transfer) {
-        var sourceAccountOpt = savingsAccountRepository.findById(transfer.getSourceAccount());
-        var targetAccountOpt = savingsAccountRepository.findById(transfer.getTargetAccount());
-
-        if (sourceAccountOpt.isEmpty() || targetAccountOpt.isEmpty()) {
-            throw new IllegalArgumentException("Conta de origem ou destino não encontrada.");
-        }
-
-        var sourceAccount = sourceAccountOpt.get();
-        var targetAccount = targetAccountOpt.get();
-
-        if (sourceAccount.getBalance().compareTo(transfer.getAmount()) < 0) {
-            logger.error("Tentativa de transferência com saldo insuficiente: " + transfer.getSourceAccount());
-            throw new IllegalArgumentException("Saldo insuficiente na conta de origem.");
-        }
-
-        BigDecimal newSourceBalance = sourceAccount.getBalance().subtract(transfer.getAmount());
-        BigDecimal newTargetBalance = targetAccount.getBalance().add(transfer.getAmount());
-
-        sourceAccount.setBalance(newSourceBalance);
-        targetAccount.setBalance(newTargetBalance);
-
-        savingsAccountRepository.save(sourceAccount);
-        savingsAccountRepository.save(targetAccount);
-
-        Transaction transaction = new Transaction(sourceAccount, targetAccount, transfer);
-        transactionRepository.save(transaction);
     }
 
 
@@ -147,22 +109,8 @@ public class ScheduledTransferService {
             throw new IllegalArgumentException("A transferência não está no status 'FALHOU', não pode ser reprocessada.");
         }
 
-        BigDecimal currentBalance = savingsAccountRepository.findById(transfer.getSourceAccount())
-                .orElseThrow(() -> new IllegalArgumentException("Conta de origem não encontrada"))
-                .getBalance();
-
-        if (currentBalance.compareTo(transfer.getAmount()) < 0) {
-            logger.error("Tentativa de transferência com saldo insuficiente: " + transfer.getSourceAccount() + "retry");
-            throw new IllegalArgumentException("Saldo insuficiente na conta de origem.");
-        }
-
-
-        executeTransfer(transfer);
         transfer.setScheduledDate(LocalDateTime.now());
-        transfer.setStatus(EnumStatus.CONCLUIDA);
-        scheduledTransferRepository.save(transfer);
-
-        return transfer;
+        return scheduledTransferExecutor.execute(transfer);
     }
 
     public ScheduledTransfer cancelScheduledTransfer(UUID id) {
