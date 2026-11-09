@@ -1,225 +1,541 @@
-# 🏦 Sistema Bancário Simplificado
+# 🏦 Sistema Bancário
 
-![Versão](https://img.shields.io/badge/vers%C3%A3o-1.4.0-blue)
+![Versão](https://img.shields.io/badge/vers%C3%A3o-1.5.0-blue)
 ![Java](https://img.shields.io/badge/Java-17-orange)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.4.3-brightgreen)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-required-blue)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15%2B-blue)
+![Kafka](https://img.shields.io/badge/Kafka-alertas%20AML-black)
+![Testes](https://img.shields.io/badge/testes-112%20passando-success)
+![Licença](https://img.shields.io/badge/licen%C3%A7a-educacional-lightgrey)
 
-API REST de um sistema bancário simplificado, com contas poupança e corrente, transferências, agendamento de transferências, controle de depósitos suspeitos, alertas AML publicados no Kafka e juros em lote.
+API REST para um sistema bancário simplificado, com contas corrente e poupança,
+transferências, agendamentos, prevenção a fraudes, alertas AML publicados no Kafka
+e aplicação de juros em lote com Spring Batch.
 
-> ⚠️ **Atenção:** esta versão tem problemas de segurança e de funcionamento. Leia a seção [Problemas conhecidos](#-problemas-conhecidos) antes de usar ou implantar o projeto.
+> Projeto desenvolvido para fins de estudo. **Não use em produção sem revisar
+> autenticação, autorização, criptografia, auditoria e infraestrutura.**
 
 ---
 
 ## 📋 Índice
 
+- [Visão geral](#-visão-geral)
 - [Funcionalidades](#-funcionalidades)
-- [Autenticação e perfis](#-autenticação-e-perfis)
-- [Regras de negócio](#-regras-de-negócio)
-- [Tecnologias](#-tecnologias)
+- [Stack tecnológico](#-stack-tecnológico)
 - [Pré-requisitos](#-pré-requisitos)
 - [Configuração](#-configuração)
-- [Instalação e execução](#-instalação-e-execução)
-- [Enums](#-enums)
+- [Banco de dados](#-banco-de-dados)
+- [Executando o projeto](#-executando-o-projeto)
+- [Autenticação e perfis](#-autenticação-e-perfis)
 - [Endpoints](#-endpoints)
-- [Campos dos DTOs](#-campos-dos-dtos)
-- [Exemplos de requisição](#-exemplos-de-requisição)
-- [Erros](#-erros)
-- [Problemas conhecidos](#-problemas-conhecidos)
+- [Regras de negócio](#-regras-de-negócio)
+- [Enums](#-enums)
+- [DTOs](#-dtos)
+- [Exemplos de uso](#-exemplos-de-uso)
+- [Tratamento de erros](#-tratamento-de-erros)
 - [Testes](#-testes)
 - [Estrutura do projeto](#-estrutura-do-projeto)
-- [Changelog](#-changelog)
+- [Limitações e cuidados](#-limitações-e-cuidados)
 - [Contribuindo](#-contribuindo)
 - [Autor](#-autor)
 
 ---
 
+## 🔎 Visão geral
+
+O sistema expõe uma API REST protegida por JWT para gerenciar:
+
+- usuários e seus perfis (`ADMIN`, `GERENTE`, `CLIENTE`);
+- contas corrente e poupança;
+- depósitos, saques e transferências;
+- transferências agendadas;
+- extrato e transações pendentes;
+- alertas de prevenção à lavagem de dinheiro (AML);
+- aplicação diária de juros em contas poupança.
+
+### Arquitetura
+
+```mermaid
+flowchart LR
+    C[Cliente HTTP / Swagger] --> API[API REST Spring Boot]
+    API --> SEC[Spring Security + JWT]
+    API --> DB[(PostgreSQL)]
+    API --> K[(Kafka - alertas-aml)]
+    B[Spring Batch - juros diários] --> DB
+    S[Agendador - transferências a cada 5 min] --> DB
+```
+
+### Fluxo resumido
+
+1. A aplicação cria um usuário `admin` padrão na primeira inicialização.
+2. O cliente faz login em `POST /auth/signin` e recebe `token` e `refreshToken`.
+3. O token é enviado no cabeçalho `Authorization: Bearer <token>`.
+4. As rotas são liberadas conforme o perfil do usuário.
+5. Depósitos, saques e transferências geram transações e podem gerar alertas AML.
+
+---
+
 ## ✨ Funcionalidades
 
-- **Usuários:** cadastro com username e e-mail únicos, senha criptografada com BCrypt, atualização, troca de papel e ativação ou desativação.
-- **Contas:** criação de contas poupança (`SavingsAccount`) e corrente (`CheckingAccount`) vinculadas a um usuário, com saldo inicial mínimo de R$ 100 e CPF validado. Também é possível ativar e desativar contas.
-- **Depósitos e saques:** existem endpoints, mas a maioria tem problemas. Veja [Regras de negócio](#-regras-de-negócio) e [Problemas conhecidos](#-problemas-conhecidos).
-- **Transferências:** endpoint `POST /transfer`, que move saldo entre contas poupança e corrente com lock por conta.
-- **Agendamentos:** transferências futuras entre contas poupança, executadas por um job a cada 5 minutos.
-- **Transações:** consulta por ID e marcação como concluída ou com falha.
-- **Alertas AML:** registrados no banco e, em alguns casos, publicados no tópico Kafka `alertas-aml`.
-- **Juros em lote:** job Spring Batch que aplica juros às contas poupança todo dia às 23h59.
-- **Autenticação JWT:** access token e refresh token. O login está quebrado (ver problemas).
+### Usuários
+- Cadastro com `username` e `email` únicos.
+- Senha criptografada com BCrypt.
+- Atualização de dados, troca de perfil, ativação e desativação.
+- Perfis `ADMIN`, `GERENTE` e `CLIENTE`.
+- Criação automática do usuário `admin` na primeira execução.
 
-## 👥 Autenticação e perfis
+### Contas
+- Conta poupança (`SavingsAccount`) e conta corrente (`CheckingAccount`).
+- Validação de CPF, e-mail, telefone, documento e data de nascimento.
+- Saldo inicial mínimo de **R$ 100,00**.
+- Vínculo obrigatório com um usuário ativo.
+- Ativação e desativação de contas.
+- Consulta de saldo e extrato.
 
-O fluxo esperado é:
+### Movimentações
+- Depósito em conta poupança e corrente.
+- Saque com limite acumulado de **R$ 2.000,00 em 24 horas**.
+- Transferência entre contas corrente e poupança.
+- Transferência direta entre contas do mesmo tipo.
+- Transferência agendada entre contas poupança.
+- Reprocessamento e cancelamento de agendamentos.
 
-1. Fazer login em `POST /authentication/signin` e receber `token` e `refreshToken`.
-2. Enviar o token em todas as rotas protegidas:
+### Segurança e antifraude
+- Autenticação stateless com JWT.
+- Access token e refresh token.
+- Autorização por perfil.
+- Detecção de depósitos repetidos, recorrentes e de alto valor.
+- Registro de alertas AML no banco.
+- Publicação de alertas no tópico Kafka `alertas-aml`.
+- Validação de horário para TED e DOC.
+- Validação de feriados nacionais e fins de semana.
 
-   ```http
-   Authorization: Bearer <token>
-   ```
+### Processamento em lote
+- Job Spring Batch `interestCalculationJob`.
+- Execução diária às **23h59**.
+- Aplicação de juros em todas as contas poupança.
+- Processamento em chunks de 50 contas.
 
-3. Quando o access token expirar, usar `POST /authentication/refresh`. A resposta traz um novo access token e devolve o mesmo refresh token.
+---
+
+## 🛠 Stack tecnológico
+
+| Camada | Tecnologia |
+|--------|------------|
+| Linguagem | Java 17 |
+| Framework | Spring Boot 3.4.3 |
+| Web | Spring Web (REST) |
+| Persistência | Spring Data JPA + Hibernate |
+| Banco | PostgreSQL |
+| Segurança | Spring Security + JWT (jjwt 0.11.5) |
+| Validação | Jakarta Validation + Hibernate Validator |
+| Mensageria | Spring Kafka |
+| Processamento em lote | Spring Batch + Scheduling |
+| Documentação da API | Springdoc OpenAPI 2.8.5 (Swagger UI) |
+| Mapeamento | MapStruct 1.6.3 + Lombok |
+| Testes | JUnit 5, Mockito, Spring Security Test e H2 |
+| Build | Maven Wrapper (`./mvnw`) |
+| Infra local | Docker Compose (Kafka) |
+
+---
+
+## ✅ Pré-requisitos
+
+- **JDK 17** ou superior
+- **Maven 3.8+** (ou use o wrapper `./mvnw`)
+- **PostgreSQL** em execução
+- **Kafka** (necessário para publicar alertas AML)
+- **Docker e Docker Compose** (opcional, para subir o Kafka)
+
+Verifique as versões:
+
+```bash
+java -version
+./mvnw -version
+```
+
+---
+
+## ⚙️ Configuração
+
+O arquivo `src/main/resources/application.yml` contém dados locais e **não é
+versionado** (está no `.gitignore`). O modelo seguro fica em
+`src/main/resources/application.yml.example`.
+
+### 1. Crie seu arquivo local
+
+```bash
+cp src/main/resources/application.yml.example src/main/resources/application.yml
+```
+
+### 2. Preencha as variáveis
+
+Você pode editar o `application.yml` ou usar variáveis de ambiente:
+
+```bash
+export DB_URL="jdbc:postgresql://localhost:5555/Banking_systemDB"
+export DB_USERNAME="postgres"
+export DB_PASSWORD="sua-senha"
+export JWT_SECRET="$(openssl rand -base64 32)"
+```
+
+O modelo usado pelo projeto:
+
+```yaml
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5555/Banking_systemDB}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:SUA_SENHA_AQUI}
+
+  batch:
+    jdbc:
+      schema: classpath:/table/V7__create_batch_tables.sql
+      table-prefix: batch.BATCH_
+
+  kafka:
+    bootstrap-servers: localhost:9092
+
+jwt:
+  secret: ${JWT_SECRET:COLOQUE_UMA_CHAVE_BASE64_DE_32_BYTES_AQUI}
+```
+
+> 🔐 Gere o segredo JWT com `openssl rand -base64 32`. Nunca faça commit do
+> `application.yml` real, de senhas ou de chaves.
+
+### 3. Usuário administrador padrão
+
+Na primeira inicialização, se não existir nenhum usuário `ADMIN`, a aplicação cria:
+
+| Campo | Valor |
+|-------|-------|
+| Username | `admin` |
+| Senha | `admin` |
+| E-mail | `admin@gmail.com` |
+| Perfil | `ADMIN` |
+
+> ⚠️ **Troque a senha do admin antes de qualquer uso real.**
+
+---
+
+## 🗄 Banco de dados
+
+O projeto usa `ddl-auto: none`; as tabelas são criadas manualmente pelos scripts
+em `src/main/resources/tables/`:
+
+| Ordem | Script | Tabela |
+|-------|--------|--------|
+| 1 | `V1__create_SavingsAccount.sql` | `savings_account` |
+| 2 | `V2__create_CheckingAccount.sql` | `checking_account` |
+| 3 | `V3__create_users.sql` | `users` |
+| 4 | `V4__create_transaction.sql` | `transaction` |
+| 5 | `V5__create_AlertAML.sql` | `alert_aml` |
+| 6 | `V6__create__scheduled_transfer.sql` | `scheduled_transfer` |
+| 7 | `V7__create_batch_tables.sql` | Tabelas do Spring Batch no schema `batch` |
+
+Exemplo com `psql`:
+
+```bash
+createdb -h localhost -p 5555 -U postgres Banking_systemDB
+psql -h localhost -p 5555 -U postgres -d Banking_systemDB \
+  -f src/main/resources/tables/V1__create_SavingsAccount.sql \
+  -f src/main/resources/tables/V2__create_CheckingAccount.sql \
+  -f src/main/resources/tables/V3__create_users.sql \
+  -f src/main/resources/tables/V4__create_transaction.sql \
+  -f src/main/resources/tables/V5__create_AlertAML.sql \
+  -f src/main/resources/tables/V6__create__scheduled_transfer.sql \
+  -f src/main/resources/tables/V7__create_batch_tables.sql
+```
+
+> ℹ️ **Observação:** o script `V3` contém uma FK para `scheduled_transfer`, que é
+> criada no `V6`. Em um banco novo, remova essa constraint de `V3` (ela é
+> redundante, pois o vínculo já existe em `V6`) ou crie-a depois com `ALTER TABLE`.
+>
+> ℹ️ O projeto **não usa Flyway**; os scripts não são executados automaticamente.
+
+---
+
+## 🚀 Executando o projeto
+
+### 1. Clone o repositório
+
+```bash
+git clone https://github.com/Kiraruto/Sistema-Bancario.git
+cd Sistema-Bancario
+git checkout 1.5.0
+```
+
+### 2. Suba o Kafka (opcional, mas recomendado)
+
+O `docker-compose.yml` fica em `src/main/resources/`:
+
+```bash
+docker network create bank-network
+docker compose -f src/main/resources/docker-compose.yml up -d
+```
+
+### 3. Compile e execute
+
+```bash
+./mvnw clean package
+./mvnw spring-boot:run
+```
+
+Ou execute o JAR gerado:
+
+```bash
+java -jar target/Sistema-bancario-0.0.1-SNAPSHOT.jar
+```
+
+A API sobe na porta **8080** (padrão do Spring Boot).
+
+### 4. Acesse o Swagger
+
+- <http://localhost:8080/swagger-ui.html>
+- <http://localhost:8080/swagger-ui/index.html>
+- <http://localhost:8080/v3/api-docs>
+
+---
+
+## 🔐 Autenticação e perfis
+
+### Login
+
+```http
+POST /auth/signin
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "admin"
+}
+```
+
+Resposta:
+
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiJ9...",
+  "refreshToken": "eyJhbGciOiJIUzI1NiJ9..."
+}
+```
+
+### Uso do token
+
+```http
+Authorization: Bearer <token>
+```
+
+### Refresh
+
+```http
+POST /auth/refresh
+Content-Type: application/json
+
+{
+  "token": "<refreshToken>"
+}
+```
+
+### Validade dos tokens
 
 | Token | Validade |
 |-------|----------|
-| Access token | 24 minutos |
+| Access token | 30 minutos |
 | Refresh token | 7 dias |
-
-> ⚠️ **O login não funciona nesta versão.** Veja o primeiro item em [Problemas conhecidos](#-problemas-conhecidos).
 
 ### Perfis
 
-Os perfis são `ADMIN`, `GERENTE` e `CLIENTE`. Na prática, porém, a configuração de segurança faz com que a maior parte das rotas fique acessível apenas a um perfil. Veja a tabela de [Endpoints](#-endpoints), que mostra as permissões efetivas.
+| Perfil | Descrição |
+|--------|-----------|
+| `ADMIN` | Administra usuários, transações e agendamentos. |
+| `GERENTE` | Gerencia contas, depósitos, saques, transferências e agendamentos. |
+| `CLIENTE` | Consulta suas contas, saldo, extrato e realiza transferências. |
+
+As permissões efetivas de cada rota estão na seção [Endpoints](#-endpoints).
+
+---
+
+## 📡 Endpoints
+
+> As permissões abaixo refletem a ordem real dos matchers em
+> `SecurityConfiguration`. Rotas literais como `/create` são avaliadas antes dos
+> padrões `/{id}`.
+
+### Autenticação
+
+| Método | Rota | Acesso | Corpo |
+|--------|------|--------|-------|
+| POST | `/auth/signin` | Público | `SigninRequest` |
+| POST | `/auth/refresh` | Público | `RefreshTokenRequest` |
+
+### Usuários
+
+| Método | Rota | Acesso | Corpo |
+|--------|------|--------|-------|
+| GET | `/users` | ADMIN | — |
+| GET | `/users/{id}` | ADMIN | — |
+| POST | `/users` | ADMIN | `UserDTO` |
+| PUT | `/users/{id}/update` | ADMIN, GERENTE, CLIENTE | `UserDTO` |
+| PUT | `/users/{id}/admin` | ADMIN | — |
+| PUT | `/users/{id}/gerente` | ADMIN | — |
+| PUT | `/users/{id}/cliente` | ADMIN, CLIENTE | — |
+| PUT | `/users/{id}/disableUser` | ADMIN | — |
+| PUT | `/users/{id}/activateUser` | ADMIN | — |
+
+### Contas poupança
+
+| Método | Rota | Acesso | Corpo |
+|--------|------|--------|-------|
+| GET | `/savings-accounts` | GERENTE | — |
+| GET | `/savings-accounts/{id}` | CLIENTE | — |
+| GET | `/savings-accounts/{id}/balance` | ADMIN, CLIENTE | — |
+| GET | `/savings-accounts/{id}/transactions` | CLIENTE | — |
+| POST | `/savings-accounts/create` | ADMIN, GERENTE | `SavingsAccountDTO` |
+| PUT | `/savings-accounts/{id}/deposit` | GERENTE, CLIENTE | `WithdrawRequestDTO` |
+| PUT | `/savings-accounts/{id}/withdrawal` | GERENTE, CLIENTE | `WithdrawalRequestDTO` |
+| PUT | `/savings-accounts/transfer/savingsAccount` | GERENTE, CLIENTE | `DepositRequestDTO` |
+| PUT | `/savings-accounts/{id}/disableSavingsAccount` | ADMIN, GERENTE | — |
+| PUT | `/savings-accounts/{id}/activateSavingsAccount` | ADMIN, GERENTE | — |
+
+### Contas corrente
+
+| Método | Rota | Acesso | Corpo |
+|--------|------|--------|-------|
+| GET | `/checking-accounts` | GERENTE | — |
+| GET | `/checking-accounts/{id}` | CLIENTE | — |
+| GET | `/checking-accounts/{id}/balance` | ADMIN, CLIENTE | — |
+| GET | `/checking-accounts/{id}/transactions` | CLIENTE | — |
+| POST | `/checking-accounts/create` | ADMIN, GERENTE | `CheckingAccountDTO` |
+| PUT | `/checking-accounts/{id}/deposit` | GERENTE, CLIENTE | `WithdrawRequestDTO` |
+| PUT | `/checking-accounts/{id}/withdrawal` | GERENTE, CLIENTE | `WithdrawalRequestDTO` |
+| PUT | `/checking-accounts/transfer/checkingAccount` | GERENTE, CLIENTE | `DepositRequestDTO` |
+| PUT | `/checking-accounts/{id}/disableCheckingAccount` | ADMIN, GERENTE | — |
+| PUT | `/checking-accounts/{id}/activateCheckingAccount` | ADMIN, GERENTE | — |
+
+### Transferências
+
+| Método | Rota | Acesso | Corpo |
+|--------|------|--------|-------|
+| POST | `/transfer` | GERENTE, CLIENTE | `TransferRequestDTO` |
+
+### Transferências agendadas
+
+| Método | Rota | Acesso | Corpo |
+|--------|------|--------|-------|
+| GET | `/schedule` | ADMIN, GERENTE | — |
+| GET | `/schedule/{id}` | ADMIN, GERENTE | — |
+| GET | `/schedule/user/{userId}` | ADMIN, GERENTE | — |
+| GET | `/schedule/{id}/pending` | ADMIN, GERENTE | — |
+| GET | `/schedule/{id}/status` | ADMIN, GERENTE | — |
+| GET | `/schedule/failed` | ADMIN, GERENTE | — |
+| POST | `/schedule` | ADMIN, GERENTE | `ScheduledTransferDTO` |
+| PUT | `/schedule/{id}` | ADMIN, GERENTE | `ScheduledTransferDTO` |
+| PUT | `/schedule/{id}/retry/` | ADMIN, GERENTE | — |
+| PUT | `/schedule/{id}/cancel` | ADMIN, GERENTE | — |
+| DELETE | `/schedule/{id}` | ADMIN, GERENTE | — |
+
+> Em `GET /schedule/{id}/pending`, o `{id}` é o **ID do usuário**, não o ID do
+> agendamento.
+
+### Transações
+
+| Método | Rota | Acesso | Descrição |
+|--------|------|--------|-----------|
+| GET | `/transaction/{id}` | ADMIN | Extrato por ID da conta |
+| GET | `/transaction/pendente/{id}` | ADMIN | Transações pendentes por conta |
+| PUT | `/transaction/full/{id}` | ADMIN | Conclui transação pendente (credita o saldo) |
+| PUT | `/transaction/failure/{id}` | ADMIN | Marca transação como falha |
+
+### Documentação
+
+| Método | Rota | Acesso |
+|--------|------|--------|
+| GET | `/swagger-ui.html` | Público |
+| GET | `/swagger-ui/**` | Público |
+| GET | `/v3/api-docs/**` | Público |
+
+---
 
 ## 📏 Regras de negócio
 
-### Depósitos em poupança (`PUT /savings-accounts/{id}/deposit`)
+### Criação de contas
+
+- Saldo inicial mínimo: **R$ 100,00**.
+- CPF válido (validação do Hibernate Validator).
+- Data de nascimento no passado ou presente.
+- Usuário vinculado precisa existir e estar **ativo**.
+- CPF, e-mail, telefone e documento não podem se repetir.
+- A conta é vinculada automaticamente ao usuário.
+
+### Depósitos em poupança
 
 | Situação | Comportamento |
 |----------|---------------|
-| Valor acima de R$ 50.000 | Gera alerta AML e responde `400` com a mensagem de limite. |
-| Valor acima de R$ 10.000 | Grava a transação como `PENDENTE` e gera alerta, mas responde `400`. A mensagem cita o limite de R$ 50.000. |
-| Três depósitos de mesmo valor em menos de 5 minutos | Grava a transação como `PENDENTE` e gera alerta. A requisição responde com sucesso, mas o saldo **não** é creditado. |
-| Origem `TED` | Aceita em qualquer horário. |
-| Origem `DOC` | Aceita somente até R$ 4.999,99 e antes das 17h. |
-| Origem `DINHEIRO_FISICO` | Sempre recusada. Veja [Problemas conhecidos](#-problemas-conhecidos). |
-| Origem `SAQUE` | Recusada em depósito. |
+| Valor acima de R$ 50.000 | Gera alerta AML e retorna erro. |
+| Valor acima de R$ 10.000 | Cria transação `PENDENTE`, gera alerta e retorna erro para análise manual. |
+| Três depósitos do mesmo valor em menos de 5 minutos | Cria transação `PENDENTE`, gera alerta e não credita o saldo. |
+| Origem `TED` | Permitida apenas em dias úteis e fora de feriados nacionais. |
+| Origem `DOC` | Permitida até R$ 4.999,99 e antes das 17h. |
+| Origem `DINHEIRO_FISICO` | Permitida. |
+| Origem `SAQUE` | Inválida para depósito. |
 
-### Depósitos em corrente (`PUT /checking-accounts/{id}/deposit`)
+### Depósitos em conta corrente
 
-Não funciona nesta versão. A validação está invertida e todo depósito falha. Veja [Problemas conhecidos](#-problemas-conhecidos).
+| Situação | Comportamento |
+|----------|---------------|
+| Valor acima de R$ 50.000 | Gera alerta AML e retorna erro. |
+| Três depósitos do mesmo valor em menos de 5 minutos | Cria transação `PENDENTE`, gera alerta e bloqueia. |
+| 5 ou mais depósitos ≥ R$ 9.000 em 24h | Cria transação `PENDENTE`, gera alerta e bloqueia. |
+| Valor acima de R$ 10.000 | Cria transação `PENDENTE`, gera alerta e retorna erro. |
+| Valor dentro dos limites | Credita o saldo e registra a transação. |
 
-### Saques em poupança (`PUT /savings-accounts/{id}/withdrawal`)
+### Saques
 
 | Regra | Comportamento |
 |-------|---------------|
-| Valor positivo | Obrigatório. |
-| Saldo | O saque não pode ser maior que o saldo. |
-| Limite em 24 horas | A soma dos saques das últimas 24 horas não pode passar de R$ 2.000. |
-| Valor acima de R$ 20.000 | Grava a transação como `PENDENTE`, mas **o saldo é debitado mesmo assim**. |
+| Valor | Deve ser positivo. |
+| Saldo | Não pode ser insuficiente. |
+| Limite em 24 horas | Soma dos saques não pode passar de **R$ 2.000,00**. |
+| Valor acima de R$ 20.000 | A transação é registrada como `PENDENTE`. |
+| Conta | Precisa existir e estar ativa. |
 
-### Saques em corrente
+### Transferências
 
-Não funcionam nesta versão, pelo mesmo motivo dos depósitos.
-
-### Transferências (`POST /transfer`)
-
-- Move saldo entre contas poupança e corrente, usando `fromType` e `toType` (`SAVING` ou `CHECKING`).
-- Exige saldo suficiente na conta de origem.
-- Não verifica se o usuário autenticado é dono da conta de origem.
-- Não valida se o valor é positivo. Veja [Problemas conhecidos](#-problemas-conhecidos).
-
-### Transferências entre poupanças (`PUT /savings-accounts/transfer/savingsAccount`)
-
-Movem o saldo, mas o registro da transação sai com status `FALHOU` quando a conta de destino está ativa, e com tipo `DEPOSITO`. Veja [Problemas conhecidos](#-problemas-conhecidos).
+- `POST /transfer` move saldo entre contas `CHECKING` e `SAVING`.
+- O valor precisa ser positivo.
+- A conta de origem precisa ter saldo suficiente.
+- As contas são bloqueadas com `ReentrantLock` para evitar concorrência.
+- Não há validação de propriedade da conta de origem (ver [Limitações](#-limitações-e-cuidados)).
 
 ### Transferências agendadas
 
 | Regra | Comportamento |
 |-------|---------------|
-| Entre quais contas | Somente entre contas poupança. |
+| Contas | Somente entre contas poupança. |
 | Data | Precisa ser futura (`@Future`). |
-| Execução | Um job roda a cada 5 minutos e executa as transferências com status `PENDENTE` cuja data já passou. |
+| Status inicial | `PENDENTE`. |
+| Execução | Job a cada 5 minutos processa agendamentos vencidos. |
 | Saldo insuficiente | Marca como `FALHOU` e incrementa o contador de tentativas. |
-| Reprocessamento | Permitido apenas para status `FALHOU`. Atualiza a data para o momento atual. |
-| Cancelamento | Não é permitido para transferências `CONCLUIDA`. |
+| Reprocessamento | Permitido apenas para `FALHOU`. |
+| Cancelamento | Permitido, exceto para `CONCLUIDA`. |
 
-| Status | Significado |
-|--------|-------------|
-| `PENDENTE` | Aguardando a data agendada. |
-| `CONCLUIDA` | Executada com sucesso. |
-| `FALHOU` | Não executada. Pode ser reprocessada. |
-| `CANCELADA` | Cancelada antes da execução. |
+### Alertas AML
+
+- Alertas são persistidos na tabela `alert_aml`.
+- O `AuditService` publica o alerta no tópico Kafka `alertas-aml`.
+- Status possíveis: `NOVO`, `EM_ANALISE`, `FECHADO_FALSO_POSITIVO`, `FECHADO_REPORTADO`.
+- Os alertas são gerados por depósitos de alto valor, recorrência e padrões suspeitos.
 
 ### Juros
 
-Todo dia às 23h59, o job aplica juros sobre o saldo de **todas** as contas poupança. A taxa de 0,5% ao mês é dividida por 30 para o cálculo diário. Veja [Problemas conhecidos](#-problemas-conhecidos) sobre a taxa definida no modelo.
+- Job `interestCalculationJob` executado diariamente às **23h59**.
+- Lê todas as contas poupança em chunks de 50.
+- Taxa mensal padrão da conta: **0,6743%**.
+- A taxa diária é a taxa mensal dividida por 30.
+- O saldo é atualizado com os juros do dia.
 
-## 🛠 Tecnologias
-
-- Java 17
-- Spring Boot 3.4.3: Web, Data JPA, Security, Validation, Batch, Scheduling
-- Spring Kafka
-- PostgreSQL
-- JWT (jjwt 0.11.5)
-- Lombok e MapStruct
-- JUnit 5, Mockito e Spring Security Test
-
-## ✅ Pré-requisitos
-
-- JDK 17 ou superior
-- Maven 3.8+ (ou o wrapper `./mvnw`)
-- PostgreSQL
-- Kafka (para os alertas AML)
-- Docker e Docker Compose (opcional, para subir o Kafka)
-
-## ⚙️ Configuração
-
-Edite `src/main/resources/application.yml` ou, de preferência, use variáveis de ambiente:
-
-```yaml
-spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5555/banco
-    username: username
-    password: password
-  kafka:
-    bootstrap-servers: localhost:9092
-
-jwt:
-  secret: "troque-por-um-segredo-forte"
-```
-
-> ⚠️ Não versione o segredo JWT nem senhas reais. O valor do exemplo no repositório é `password`.
-
-### Usuário administrador padrão
-
-Ao iniciar, a aplicação cria automaticamente um usuário `admin` com senha `admin`, caso não exista nenhum usuário com papel `ADMIN`. **Troque essa senha antes de qualquer uso real.**
-
-### Banco de dados
-
-Crie o banco e execute os scripts de `src/main/resources/tables/` nesta ordem:
-
-1. `V1__create_SavingsAccount.sql`
-2. `V2__create_CheckingAccount.sql`
-3. `V3__create_users.sql`
-4. `V4__create_transaction.sql`
-5. `V5__create_AlertAML.sql`
-6. `V6__create__scheduled_transfer.sql`
-7. `V7__create_batch_tables.sql`
-
-O projeto não usa Flyway, então os scripts são executados manualmente.
-
-## 🚀 Instalação e execução
-
-1. Clone o repositório e acesse a versão 1.4.0:
-
-   ```bash
-   git clone https://github.com/Kiraruto/Sistema-Bancario.git
-   cd Sistema-Bancario
-   git checkout 1.4.0
-   ```
-
-2. (Opcional) Suba o Kafka. O `docker-compose.yml` fica em `src/main/resources/`:
-
-   ```bash
-   docker network create bank-network
-   docker compose -f src/main/resources/docker-compose.yml up -d
-   ```
-
-3. Compile e execute:
-
-   ```bash
-   ./mvnw clean package
-   ./mvnw spring-boot:run
-   ```
-
-   Ou execute o JAR gerado:
-
-   ```bash
-   java -jar target/Sistema-bancario-0.0.1-SNAPSHOT.jar
-   ```
-
-A API sobe na porta `8080`, porque o projeto não define outra.
+---
 
 ## 🧾 Enums
 
@@ -234,282 +550,392 @@ A API sobe na porta `8080`, porque o projeto não define outra.
 | `AccountType` | `CHECKING`, `SAVING` |
 | `EnumStatusAlert` | `NOVO`, `EM_ANALISE`, `FECHADO_FALSO_POSITIVO`, `FECHADO_REPORTADO` |
 
-## 📡 Endpoints
+---
 
-A tabela mostra as **permissões efetivas**. Elas diferem do que as listas de `SecurityConfiguration` sugerem, porque o Spring aplica a primeira regra que bate com a rota. Veja [Problemas conhecidos](#-problemas-conhecidos), item 3.
+## 📦 DTOs
 
-### Autenticação
+### `UserDTO`
 
-| Método | Rota | Acesso efetivo | Corpo |
-|--------|------|----------------|-------|
-| POST | `/authentication/signin` | ⚠️ Ninguém (retorna `401`) | `SigninRequest` |
-| POST | `/authentication/refresh` | ⚠️ Ninguém (retorna `401`) | `RefreshTokenRequest` |
+| Campo | Tipo | Regra |
+|-------|------|-------|
+| `username` | String | Obrigatório |
+| `firstName` | String | Obrigatório |
+| `lastName` | String | Obrigatório |
+| `password` | String | Obrigatório |
+| `email` | String | Obrigatório e válido |
 
-### Usuários (`/users`)
+### `SavingsAccountDTO`
 
-| Método | Rota | Acesso efetivo | Corpo |
-|--------|------|----------------|-------|
-| GET | `/users` | ADMIN | |
-| GET | `/users/{id}` | ADMIN | |
-| POST | `/users` | ADMIN | `UserDTO` |
-| PUT | `/users/{id}/update` | ADMIN | `UserDTO` |
-| PUT | `/users/{id}/admin` | ADMIN | |
-| PUT | `/users/{id}/gerente` | ADMIN | |
-| PUT | `/users/{id}/cliente` | ADMIN | |
-| PUT | `/users/{id}/disableUser` | ADMIN | |
-| PUT | `/users/{id}/activateUser` | ADMIN | |
+| Campo | Tipo | Regra |
+|-------|------|-------|
+| `fullName` | String | Obrigatório, máx. 100 |
+| `dateBirth` | LocalDate | Obrigatório, passado/presente |
+| `address` | String | Obrigatório, máx. 200 |
+| `maritalStatus` | `EnumMaritalStatus` | Obrigatório |
+| `phoneNumber` | String | Obrigatório, máx. 11 |
+| `email` | String | Obrigatório, válido, máx. 60 |
+| `cpf` | String | Obrigatório, CPF válido, 11 dígitos |
+| `rgOrCnh` | `EnumTypeDocument` | Obrigatório |
+| `documentNumber` | String | Obrigatório, máx. 20 |
+| `balance` | BigDecimal | Obrigatório, mínimo R$ 100 |
+| `userId` | UUID | Obrigatório |
 
-### Poupança (`/savings-accounts`)
+### `CheckingAccountDTO`
 
-| Método | Rota | Acesso efetivo | Corpo |
-|--------|------|----------------|-------|
-| POST | `/savings-accounts/create` | GERENTE | `SavingsAccountDTO` |
-| GET | `/savings-accounts` | GERENTE | |
-| GET | `/savings-accounts/{id}` | GERENTE | |
-| GET | `/savings-accounts/{id}/balance` | GERENTE | |
-| GET | `/savings-accounts/{id}/transactions` | GERENTE | |
-| PUT | `/savings-accounts/{id}/deposit` | GERENTE | `WithdrawRequestDTO` |
-| PUT | `/savings-accounts/{id}/withdrawal` | GERENTE | `WithdrawalRequestDTO` |
-| PUT | `/savings-accounts/transfer/savingsAccount` | GERENTE | `DepositRequestDTO` |
-| PUT | `/savings-accounts/{id}/disableSavingsAccount` | GERENTE | |
-| PUT | `/savings-accounts/{id}/activateSavingsAccount` | GERENTE | |
+Os mesmos campos de `SavingsAccountDTO`, mais:
 
-### Corrente (`/checking-accounts`)
+| Campo | Tipo | Regra |
+|-------|------|-------|
+| `hasOverdraft` | Boolean | Obrigatório |
+| `requiresIncomeProof` | Boolean | Obrigatório |
 
-| Método | Rota | Acesso efetivo | Corpo |
-|--------|------|----------------|-------|
-| POST | `/checking-accounts/create` | GERENTE | `CheckingAccountDTO` |
-| GET | `/checking-accounts` | GERENTE | |
-| GET | `/checking-accounts/{id}` | GERENTE | |
-| GET | `/checking-accounts/{id}/balance` | GERENTE | |
-| GET | `/checking-accounts/{id}/transactions` | GERENTE | |
-| PUT | `/checking-accounts/{id}/deposit` | GERENTE ⚠️ falha sempre | `WithdrawRequestDTO` |
-| PUT | `/checking-accounts/{id}/withdrawal` | GERENTE ⚠️ falha sempre | `WithdrawalRequestDTO` |
-| PUT | `/checking-accounts/transfer/checkingAccount` | GERENTE ⚠️ falha sempre | `DepositRequestDTO` |
-| PUT | `/checking-accounts/{id}/disableCheckingAccount` | GERENTE | |
-| PUT | `/checking-accounts/{id}/activateCheckingAccount` | GERENTE | |
+> Em `CheckingAccountDTO`, `documentNumber` tem limite de 11 caracteres.
 
-### Transferências (`/transfer`)
+### `WithdrawRequestDTO`
 
-| Método | Rota | Acesso efetivo | Corpo |
-|--------|------|----------------|-------|
-| POST | `/transfer` | GERENTE, CLIENTE | `TransferRequestDTO` |
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `idAccount` | UUID | ID da conta |
+| `amount` | BigDecimal | Valor |
+| `enumOrigin` | `EnumOrigin` | Origem da operação |
 
-### Agendamentos (`/schedule`)
+### `WithdrawalRequestDTO`
 
-| Método | Rota | Acesso efetivo | Corpo |
-|--------|------|----------------|-------|
-| POST | `/schedule` | GERENTE | `ScheduledTransferDTO` |
-| GET | `/schedule` | GERENTE | |
-| GET | `/schedule/{id}` | GERENTE | |
-| GET | `/schedule/user/{userId}` | GERENTE | |
-| GET | `/schedule/{id}/pending` | GERENTE | ID do **usuário** |
-| GET | `/schedule/{id}/status` | GERENTE | |
-| GET | `/schedule/failed` | GERENTE | |
-| PUT | `/schedule/{id}` | GERENTE | `ScheduledTransferDTO` |
-| PUT | `/schedule/{id}/cancel` | GERENTE | |
-| PUT | `/schedule/{id}/retry/` | GERENTE | |
-| DELETE | `/schedule/{id}` | GERENTE | |
+Mesmos campos de `WithdrawRequestDTO`. Usado nos saques.
 
-### Transações (`/transaction`)
+### `DepositRequestDTO`
 
-| Método | Rota | Acesso efetivo |
-|--------|------|----------------|
-| GET | `/transaction/{id}` | ADMIN |
-| PUT | `/transaction/full/{id}` | ADMIN |
-| PUT | `/transaction/failure/{id}` | ADMIN |
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `fullName` | String | Nome do titular |
+| `email` | String | E-mail |
+| `cpf` | String | CPF |
+| `balance` | BigDecimal | Valor da transferência |
+| `origin` | `EnumOrigin` | Origem |
+| `accountSends` | UUID | Conta de origem |
+| `accountReceive` | UUID | Conta de destino |
+| `description` | String | Descrição opcional |
+| `userId` | UUID | Usuário |
 
-## 🗂 Campos dos DTOs
+### `TransferRequestDTO`
 
-| DTO | Campos | Observações |
-|-----|--------|-------------|
-| `UserDTO` | `username`, `firstName`, `lastName`, `password`, `email` | Todos obrigatórios. `email` precisa ser válido. |
-| `SavingsAccountDTO` | `fullName`, `dateBirth`, `address`, `maritalStatus`, `phoneNumber`, `email`, `cpf`, `rgOrCnh`, `documentNumber`, `balance`, `userId` | `dateBirth` não pode ser futura. `phoneNumber` tem até 11 caracteres. `cpf` precisa ser válido. `documentNumber` tem até 20 caracteres. `balance` mínimo: R$ 100. |
-| `CheckingAccountDTO` | Os mesmos campos de `SavingsAccountDTO`, mais `hasOverdraft` e `requiresIncomeProof` | `documentNumber` tem até 11 caracteres. Os demais limites são iguais. |
-| `WithdrawRequestDTO` | `idAccount`, `amount`, `enumOrigin` | Usado em depósitos. `amount` precisa ser positivo, validado no serviço. |
-| `WithdrawalRequestDTO` | `idAccount`, `amount`, `enumOrigin` | Usado em saques. |
-| `DepositRequestDTO` | `fullName`, `email`, `cpf`, `balance`, `origin`, `accountSends`, `accountReceive`, `description`, `userId` | Usado nas transferências entre contas. O valor vai no campo `balance`. |
-| `TransferRequestDTO` | `fromId`, `fromType`, `toId`, `toType`, `amount` | Sem validação de anotação. |
-| `ScheduledTransferDTO` | `accountSends`, `accountReceive`, `amount`, `scheduledDate`, `userId` | `amount` precisa ser positivo. `scheduledDate` precisa ser futura. |
-| `SigninRequest` | `username`, `password` | |
-| `RefreshTokenRequest` | `token` | Recebe o refresh token. |
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `fromId` | UUID | Conta de origem |
+| `fromType` | `AccountType` | `CHECKING` ou `SAVING` |
+| `toId` | UUID | Conta de destino |
+| `toType` | `AccountType` | `CHECKING` ou `SAVING` |
+| `amount` | BigDecimal | Valor |
 
-## 💡 Exemplos de requisição
+### `ScheduledTransferDTO`
 
-### Cadastrar um usuário
+| Campo | Tipo | Regra |
+|-------|------|-------|
+| `accountSends` | UUID | Obrigatório |
+| `accountReceive` | UUID | Obrigatório |
+| `amount` | BigDecimal | Positivo |
+| `scheduledDate` | LocalDateTime | Futuro |
+| `userId` | String | Obrigatório |
 
-```http
-POST /users
-Content-Type: application/json
+### Outros
 
-{
-  "username": "joao",
-  "firstName": "João",
-  "lastName": "Silva",
-  "password": "senha123",
-  "email": "joao@exemplo.com"
-}
+| DTO | Campos |
+|-----|--------|
+| `SigninRequest` | `username`, `password` |
+| `RefreshTokenRequest` | `token` |
+| `JWTAuthenticationresponse` | `token`, `refreshToken` |
+| `BalanceDTO` | `fullName`, `email`, `phoneNumber`, `balance`, `isActive` |
+| `TransactionDTO` | `accountSends`, `accountReceive`, `transactionType`, `amount`, `transactionDate`, `origin`, `status`, `description` |
+
+---
+
+## 💡 Exemplos de uso
+
+### 1. Login como admin
+
+```bash
+curl -X POST http://localhost:8080/auth/signin \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"admin"}'
 ```
 
-### Criar conta poupança
+Guarde o `token` retornado:
 
-```http
-POST /savings-accounts/create
-Content-Type: application/json
-
-{
-  "fullName": "João Silva",
-  "dateBirth": "1990-05-15",
-  "address": "Rua das Flores, 100",
-  "maritalStatus": "SOLTEIRO",
-  "phoneNumber": "81999999999",
-  "email": "joao@exemplo.com",
-  "cpf": "12345678909",
-  "rgOrCnh": "RG",
-  "documentNumber": "1234567",
-  "balance": 1000.00,
-  "userId": "7f3c1d2e-0000-0000-0000-000000000000"
-}
+```bash
+TOKEN="eyJhbGciOiJIUzI1NiJ9..."
 ```
 
-### Depósito em poupança
+### 2. Criar usuário
 
-```http
-PUT /savings-accounts/{id}/deposit
-Content-Type: application/json
-
-{
-  "idAccount": "7f3c1d2e-0000-0000-0000-000000000000",
-  "amount": 500.00,
-  "enumOrigin": "TED"
-}
+```bash
+curl -X POST http://localhost:8080/users \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "joao",
+    "firstName": "João",
+    "lastName": "Silva",
+    "password": "senha123",
+    "email": "joao@exemplo.com"
+  }'
 ```
 
-### Saque em poupança
+### 3. Criar conta poupança
 
-```http
-PUT /savings-accounts/{id}/withdrawal
-Content-Type: application/json
-
-{
-  "idAccount": "7f3c1d2e-0000-0000-0000-000000000000",
-  "amount": 200.00,
-  "enumOrigin": "SAQUE"
-}
+```bash
+curl -X POST http://localhost:8080/savings-accounts/create \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "fullName": "João Silva",
+    "dateBirth": "1990-05-15",
+    "address": "Rua das Flores, 100",
+    "maritalStatus": "SOLTEIRO",
+    "phoneNumber": "81999999999",
+    "email": "joao@exemplo.com",
+    "cpf": "12345678909",
+    "rgOrCnh": "RG",
+    "documentNumber": "1234567",
+    "balance": 1000.00,
+    "userId": "ID_DO_USUARIO"
+  }'
 ```
 
-### Transferência entre contas
+### 4. Consultar saldo
 
-```http
-POST /transfer
-Content-Type: application/json
-
-{
-  "fromId": "7f3c1d2e-0000-0000-0000-000000000000",
-  "fromType": "SAVING",
-  "toId": "a1b2c3d4-0000-0000-0000-000000000000",
-  "toType": "CHECKING",
-  "amount": 150.00
-}
+```bash
+curl -X GET http://localhost:8080/savings-accounts/ID_DA_CONTA/balance \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
-### Agendar transferência
+### 5. Depositar em poupança
 
-```http
-POST /schedule
-Content-Type: application/json
-
-{
-  "accountSends": "7f3c1d2e-0000-0000-0000-000000000000",
-  "accountReceive": "b2c3d4e5-0000-0000-0000-000000000000",
-  "amount": 300.00,
-  "scheduledDate": "2026-12-01T10:00:00",
-  "userId": "7f3c1d2e-0000-0000-0000-000000000000"
-}
+```bash
+curl -X PUT http://localhost:8080/savings-accounts/ID_DA_CONTA/deposit \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "idAccount": "ID_DA_CONTA",
+    "amount": 500.00,
+    "enumOrigin": "TED"
+  }'
 ```
 
-## ⚠️ Erros
+### 6. Sacar
 
-As respostas de erro usam o formato `ErroResponse` (`status`, `message` e, para validação, `erros`).
+```bash
+curl -X PUT http://localhost:8080/savings-accounts/ID_DA_CONTA/withdrawal \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "idAccount": "ID_DA_CONTA",
+    "amount": 200.00,
+    "enumOrigin": "SAQUE"
+  }'
+```
+
+### 7. Transferir entre contas
+
+```bash
+curl -X POST http://localhost:8080/transfer \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "fromId": "ID_CONTA_ORIGEM",
+    "fromType": "SAVING",
+    "toId": "ID_CONTA_DESTINO",
+    "toType": "CHECKING",
+    "amount": 150.00
+  }'
+```
+
+### 8. Agendar transferência
+
+```bash
+curl -X POST http://localhost:8080/schedule \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "accountSends": "ID_CONTA_ORIGEM",
+    "accountReceive": "ID_CONTA_DESTINO",
+    "amount": 300.00,
+    "scheduledDate": "2026-12-01T10:00:00",
+    "userId": "ID_DO_USUARIO"
+  }'
+```
+
+### 9. Consultar extrato
+
+```bash
+curl -X GET http://localhost:8080/transaction/ID_DA_CONTA \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+---
+
+## ⚠️ Tratamento de erros
+
+Os erros de negócio e validação usam o formato `ErroResponse`:
+
+```json
+{
+  "status": 422,
+  "message": "Erro de validação",
+  "erros": [
+    {
+      "fieldName": "email",
+      "message": "must be a well-formed email address"
+    }
+  ]
+}
+```
 
 | Status | Quando acontece |
 |--------|-----------------|
-| `400` | Regras de negócio (a maioria das exceções, inclusive "conta não encontrada") e corpo mal formado. |
-| `401` | Sem token ou credenciais inválidas. O corpo é `{"error": "Não autorizado..."}`. Token expirado tem outro formato de corpo. |
-| `403` | Acesso negado pela autorização. |
-| `404` | Rota não encontrada e algumas exceções de "não encontrado" (como transações pendentes). |
-| `405` | Método HTTP não suportado pela rota. |
-| `409` | Duplicidade, como usuário ou e-mail já cadastrado. |
-| `422` | Falha de validação do corpo (`@Valid`), com a lista de campos em `erros`. |
-| `500` | Erro não tratado. Também retornado por `IllegalStateException`, usada na validação de depósitos acima de R$ 10.000 em conta corrente. |
+| `400` | Regra de negócio, valor inválido, conta inexistente, limite excedido etc. |
+| `401` | Token ausente/inválido ou credenciais incorretas. |
+| `403` | Perfil sem permissão para a rota. |
+| `404` | Recurso não encontrado. |
+| `405` | Método HTTP não suportado. |
+| `409` | Duplicidade (usuário, e-mail, CPF etc.). |
+| `415` | `Content-Type` não suportado. |
+| `422` | Falha de validação do corpo (`@Valid`). |
+| `500` | Erro interno não tratado. |
 
-## 🐞 Problemas conhecidos
+Exemplo de resposta sem autenticação:
 
-Os itens abaixo foram confirmados lendo o código. Ainda não foram testados em execução.
+```json
+{
+  "error": "Não autorizado. Faça login para acessar este recurso."
+}
+```
 
-1. **Login quebrado.** A rota pública de autenticação é `/auth/**`, mas o controller usa `/authentication`. Assim, `POST /authentication/signin` e `/refresh` não são públicos e retornam `401`. Não é possível obter token sem um já existir.
-2. **Usuário padrão com senha conhecida.** A aplicação cria `admin` com senha `admin` na primeira execução, se não houver um `ADMIN`.
-3. **Permissões efetivas.** O Spring aplica a primeira regra que bate com a rota. Como `ADMIN_PATHS` vem antes das outras listas, `/users/**` e `/transaction/**` ficam só com ADMIN. `GERENTE_PATHS` vem antes das regras de `CLIENTE`, então `/savings-accounts/**`, `/checking-accounts/**` e `/schedule/**` ficam só com GERENTE. Consequências:
-   - O perfil `CLIENTE` não acessa nenhuma conta, saldo ou extrato. Só acessa `/transfer`.
-   - O perfil `ADMIN` não acessa contas nem agendamentos.
-   - `GERENTE` não consegue desativar ou ativar usuários.
-4. **`/transfer` sem verificação de dono.** Qualquer usuário com perfil `GERENTE` ou `CLIENTE` pode movimentar saldo de qualquer conta, informando o `fromId`. Além disso, o valor não é validado como positivo, então um `amount` negativo aumentaria o saldo da conta de origem.
-5. **Contas correntes quebradas.** A validação de `CheckingAccountValidate` está invertida: `validateCheckingAccountWithdraw` e `validateCheckingAccountWithdrawal` lançam erro quando a conta **existe**. Por isso depósitos e saques em corrente sempre falham. `validateDepositChecking` rejeita todo valor positivo, então `/checking-accounts/transfer/checkingAccount` também falha sempre.
-6. **Depósitos em poupança com origem limitada.** `DINHEIRO_FISICO` é comparado com uma lista de strings (`"AGENCIA"`, `"ATM"`), e a comparação nunca é verdadeira. Por isso depósitos em dinheiro sempre falham. `SAQUE` não é aceito em depósito.
-7. **Depósito suspeito retorna sucesso sem creditar.** No caso de três depósitos iguais em menos de 5 minutos, a poupança grava a transação como `PENDENTE`, gera o alerta e encerra o método sem alterar o saldo, respondendo sem erro.
-8. **Depósito acima de R$ 10.000 em poupança cria registro e responde erro.** A transação fica `PENDENTE`, mas a resposta é `400`, e a mensagem cita R$ 50.000.
-9. **Saque acima de R$ 20.000 é debitado mesmo `PENDENTE`.** O status é gravado, mas o saldo é alterado de qualquer forma.
-10. **Horário de TED não aplicado.** `BankHoursService.isTedTimeValid` calcula se é dia útil, mas o resultado é ignorado em `DepositValidator.validateTed()`.
-11. **Transferências entre poupanças com registro incorreto.** A condição que define `FALHOU` está invertida: quando a conta de destino está **ativa**, a transação é gravada como `FALHOU`, embora o dinheiro seja movido. O tipo gravado é `DEPOSITO`. Como o registro é criado depois de alterar os saldos, uma falha na validação de origem pode deixar o saldo alterado sem registro. Não confirmei se o método é transacional.
-12. **Validação de UUID incorreta.** `DepositRequestDTO` usa `@NotBlank` em campos `UUID`. Essa anotação só se aplica a `String`, então a validação pode gerar erro interno.
-13. **Validação de usuário usando ID de conta.** `SavingsAccountValidate.validateDepositSavings` verifica o usuário com `accountSends` e `accountReceive`, que são IDs de conta, não de usuário.
-14. **`FraudDetectionService` não é usado.** Nenhum código o chama. A detecção de fraude efetiva está em `SavingsAccountService.deposit` e em `DepositValidatorService`.
-15. **Taxa de juros inconsistente.** O modelo `SavingsAccount` define `interestRate` como 0,6743%, mas o job de juros usa 0,5% ao mês, e o campo do modelo não é usado no cálculo.
-16. **Swagger não configurado.** `SecurityConfiguration` libera `/swagger-ui/**` e `/v3/api-docs/**`, mas o `pom.xml` não tem `springdoc`.
-17. **`/schedule/{id}/pending` recebe ID de usuário,** não de agendamento.
-18. **Migrations manuais.** Os scripts não são executados automaticamente.
-19. **Valores de exemplo.** O segredo JWT e as credenciais do banco no `application.yml` são de exemplo. O usuário `admin`/`admin` é criado automaticamente.
+---
 
 ## 🧪 Testes
 
+A suíte usa o profile `test` com **H2 em memória**, sem depender do PostgreSQL.
+
 ```bash
-./mvnw test
+./mvnw clean test
 ```
 
-O projeto tem 86 métodos `@Test` em 10 classes, cobrindo serviços (contas, transações, usuários e auditoria), controllers (usuários, poupança e transações), o job de juros e o contexto da aplicação. Os testes não foram executados nesta revisão.
+Resultado atual:
+
+```text
+Tests run: 112, Failures: 0, Errors: 0, Skipped: 0
+```
+
+A estrutura dos testes espelha os pacotes do código principal:
+
+```text
+src/test/java/com/github/kiraruto/sistemaBancario/
+├── batch/config/        # Job de juros
+├── config/              # Segurança e precedência de matchers
+├── controller/          # Controllers e probes
+├── global/exception/    # Tratamento global de erros
+├── model/               # Entidades e regras de modelo
+├── service/             # Serviços e regressões
+└── utils/               # Validadores
+```
+
+---
 
 ## 📁 Estrutura do projeto
 
 ```text
-src/main/java/com/github/kiraruto/sistemaBancario/
-├── Application.java
-├── batch/config/        # Job de juros (Spring Batch)
-├── config/              # Segurança, JWT, agendamento e filtro JWT
-├── controller/          # Endpoints REST
-├── dto/                 # Entrada e saída da API
-├── exceptions/          # Exceções de negócio
-├── global/exception/    # Tratamento global de erros
-├── mapper/              # MapStruct
-├── model/               # Entidades e enums
-├── repository/          # Spring Data JPA
-├── service/             # Regras de negócio
-└── utils/               # Validadores
+Sistema-Bancario/
+├── .gitignore
+├── .mvn/
+├── mvnw
+├── mvnw.cmd
+├── pom.xml
+├── README.md
+├── outputs/                         # Relatórios do projeto
+└── src/
+    ├── main/
+    │   ├── java/com/github/kiraruto/sistemaBancario/
+    │   │   ├── Application.java      # Bootstrap + admin padrão
+    │   │   ├── batch/config/         # Job de juros (Spring Batch)
+    │   │   ├── config/               # Segurança, JWT e agendadores
+    │   │   ├── controller/           # Endpoints REST
+    │   │   ├── dto/                  # Entrada/saída da API
+    │   │   ├── exceptions/           # Exceções de negócio
+    │   │   ├── global/exception/     # Handler global de erros
+    │   │   ├── mapper/               # MapStruct
+    │   │   ├── model/                # Entidades e enums
+    │   │   ├── repository/           # Spring Data JPA
+    │   │   ├── service/              # Regras de negócio
+    │   │   └── utils/                # Validadores e limites
+    │   └── resources/
+    │       ├── application.yml       # Configuração local (ignorada)
+    │       ├── application.yml.example
+    │       ├── docker-compose.yml    # Kafka local
+    │       └── tables/               # Scripts SQL
+    └── test/
+        ├── java/                     # Testes espelhando o main
+        └── resources/                # application-test.yml (H2)
 ```
 
-## 📜 Changelog
+---
 
-### 1.4.0
-- [Descreva as mudanças desta versão.]
+## ⚠️ Limitações e cuidados
+
+Este é um projeto educacional. Antes de usar em produção, revise os pontos abaixo:
+
+1. **Usuário admin padrão** (`admin`/`admin`) é criado automaticamente. Troque a senha.
+2. **Scripts SQL manuais**: o projeto não usa Flyway/Liquibase. A ordem e a FK circular entre `users` e `scheduled_transfer` exigem atenção (ver [Banco de dados](#-banco-de-dados)).
+3. **Locks em memória**: `ReentrantLock` e `ConcurrentHashMap` funcionam em uma única instância. Em cluster, use locks distribuídos (ex.: Redis ou banco).
+4. **`POST /transfer` não valida o dono da conta de origem**: qualquer usuário com perfil `GERENTE` ou `CLIENTE` pode informar qualquer `fromId`. Adicione uma verificação de propriedade.
+5. **Saques acima de R$ 20.000**: a transação é marcada como `PENDENTE`, mas o saldo é debitado no fluxo atual. Revise se o débito deve aguardar aprovação.
+6. **Kafka**: os alertas são persistidos no banco, mas a publicação no tópico `alertas-aml` depende do Kafka estar disponível.
+7. **Schema do Batch**: o `application.yml` aponta para `classpath:/table/V7__create_batch_tables.sql`, enquanto os scripts ficam em `tables/`. Ajuste o caminho se habilitar `spring.batch.jdbc.initialize-schema=always`.
+8. **Taxa de juros**: o modelo usa 0,6743% ao mês; o job divide por 30 para obter a taxa diária. O valor de fallback é 0,5% quando `interestRate` é nulo.
+9. **Segredos**: nunca versionar `application.yml`, senhas ou chaves JWT. Use variáveis de ambiente e rotacione credenciais expostas.
+10. **Cobertura de testes**: a suíte cobre serviços, controllers, validadores e regressões, mas não substitui testes de integração com PostgreSQL e Kafka reais.
+
+---
 
 ## 🤝 Contribuindo
 
 1. Faça um fork do projeto.
-2. Crie uma branch (`git checkout -b feature/nova-feature`).
-3. Faça commit das alterações (`git commit -m 'Adiciona nova feature'`).
-4. Envie a branch (`git push origin feature/nova-feature`).
+2. Crie uma branch para sua feature:
+
+   ```bash
+   git checkout -b feature/minha-feature
+   ```
+
+3. Faça commit das alterações:
+
+   ```bash
+   git commit -m "feat: adiciona minha feature"
+   ```
+
+4. Envie a branch:
+
+   ```bash
+   git push origin feature/minha-feature
+   ```
+
 5. Abra um Pull Request.
+
+### Padrões sugeridos
+
+- Commits no formato Conventional Commits (`feat:`, `fix:`, `docs:`, `test:`).
+- Testes para novas regras de negócio.
+- Atualização do README ao alterar endpoints ou configurações.
+
+---
 
 ## 👤 Autor
 
 **Kiraruto**
+
 - GitHub: [@Kiraruto](https://github.com/Kiraruto)
+- Repositório: [Sistema-Bancario](https://github.com/Kiraruto/Sistema-Bancario)
+
+---
+
+## 📄 Licença
+
+Projeto de uso educacional. Consulte o autor antes de reutilizar em produção.
