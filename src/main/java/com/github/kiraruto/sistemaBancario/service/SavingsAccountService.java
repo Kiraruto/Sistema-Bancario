@@ -163,7 +163,7 @@ public class SavingsAccountService {
         accountAccessService.checkSavingsAccountAccess(uuid);
 
         if (!savingsAccountRepository.existsById(uuid)) {
-            throw new IllegalArgumentException("A conta com este id não está ativa");
+            throw new EntityNotFoundException("Conta poupança não encontrada");
         }
 
         List<Transaction> transactions = transactionRespository.findByAccountSends(uuid);

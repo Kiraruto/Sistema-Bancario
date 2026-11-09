@@ -120,6 +120,13 @@ class SavingsAccountControllerTest extends AbstractIntegrationTest {
     }
 
     @Test
+    @WithMockUser(authorities = "GERENTE")
+    void getTransactions_WithInvalidId_ShouldReturnNotFound() throws Exception {
+        mockMvc.perform(get("/savings-accounts/" + UUID.randomUUID() + "/transactions"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     @WithMockUser(username = "testuser", authorities = "CLIENTE")
     void getBalance_ShouldReturnBalance() throws Exception {
         mockMvc.perform(get("/savings-accounts/" + testAccount.getId() + "/balance"))

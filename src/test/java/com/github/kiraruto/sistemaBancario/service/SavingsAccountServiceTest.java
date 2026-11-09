@@ -14,6 +14,7 @@ import com.github.kiraruto.sistemaBancario.repository.TransactionRepository;
 import com.github.kiraruto.sistemaBancario.repository.UserRepository;
 import com.github.kiraruto.sistemaBancario.utils.SavingsAccountValidate;
 import com.github.kiraruto.sistemaBancario.utils.TransactionValidate;
+import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -319,11 +320,11 @@ class SavingsAccountServiceTest {
         }
 
         @Test
-        @DisplayName("Deve lançar exceção quando conta não existir")
+        @DisplayName("Deve lançar 404 quando conta não existir")
         void shouldThrowWhenAccountNotExists() {
             when(savingsAccountRepository.existsById(accountId)).thenReturn(false);
 
-            assertThrows(IllegalArgumentException.class, () -> {
+            assertThrows(EntityNotFoundException.class, () -> {
                 savingsAccountService.getTransactions(accountId);
             });
         }
