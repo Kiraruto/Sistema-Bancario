@@ -3,13 +3,11 @@ package com.github.kiraruto.sistemaBancario.service;
 import com.github.kiraruto.sistemaBancario.dto.*;
 import com.github.kiraruto.sistemaBancario.exceptions.DepositLimitExceededException;
 import com.github.kiraruto.sistemaBancario.mapper.SavingsAccountMapper;
-import com.github.kiraruto.sistemaBancario.model.AlertAML;
 import com.github.kiraruto.sistemaBancario.model.SavingsAccount;
 import com.github.kiraruto.sistemaBancario.model.Transaction;
 import com.github.kiraruto.sistemaBancario.model.User;
 import com.github.kiraruto.sistemaBancario.model.enums.EnumStatus;
 import com.github.kiraruto.sistemaBancario.model.enums.EnumTransactionType;
-import com.github.kiraruto.sistemaBancario.repository.AlertAMLRepository;
 import com.github.kiraruto.sistemaBancario.repository.SavingsAccountRepository;
 import com.github.kiraruto.sistemaBancario.repository.TransactionRepository;
 import com.github.kiraruto.sistemaBancario.repository.UserRepository;
@@ -44,7 +42,6 @@ public class SavingsAccountService {
     private final TransactionValidate transactionValidate;
     private final UserRepository userRepository;
     private final AuditService auditService;
-    private final AlertAMLRepository alertAMLRepository;
     private final SavingsAccountMapper savingsAccountMapper;
     private final AccountAccessService accountAccessService;
     private final ConcurrentHashMap<UUID, ReentrantLock> locks = new ConcurrentHashMap<>();
@@ -219,22 +216,26 @@ public class SavingsAccountService {
                     if (intervalo.toMinutes() < 5) {
                         log.warn("[FRAUDE] Três depósitos do mesmo valor ({}) em menos de 5 minutos", entry.getKey());
 
-                        Transaction fraudTransaction = new Transaction(withdrawRequestDTO, transactionValidate, EnumStatus.PENDENTE);
-                        fraudTransaction.setDescription("Depósito suspeito: 3 valores iguais em < 5 minutos");
-                        transactionRespository.save(fraudTransaction);
-
-                        alertAMLRepository.save(new AlertAML(fraudTransaction, savingsAccount.getCpf()));
+                        auditService.registerFraudAlert(
+                                uuid,
+                                valorDeposito,
+                                withdrawRequestDTO.enumOrigin(),
+                                savingsAccount.getCpf(),
+                                "Depósito suspeito: 3 valores iguais em < 5 minutos"
+                        );
                         return;
                     }
                 }
             }
 
             if (valorDeposito.compareTo(BigDecimal.valueOf(10000)) > 0) {
-                Transaction fraudTransaction = new Transaction(withdrawRequestDTO, transactionValidate, EnumStatus.PENDENTE);
-                fraudTransaction.setDescription("Depósito acima de R$ 9.999 - Verificação manual");
-                transactionRespository.save(fraudTransaction);
-
-                alertAMLRepository.save(new AlertAML(fraudTransaction, savingsAccount.getCpf()));
+                auditService.registerFraudAlert(
+                        uuid,
+                        valorDeposito,
+                        withdrawRequestDTO.enumOrigin(),
+                        savingsAccount.getCpf(),
+                        "Depósito acima de R$ 10.000 - Verificação manual"
+                );
 
                 throw new DepositLimitExceededException("O valor do depósito excede o limite permitido de R$ 10.000");
             }

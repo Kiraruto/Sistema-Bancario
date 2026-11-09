@@ -5,8 +5,13 @@ import com.github.kiraruto.sistemaBancario.exceptions.InvalidAccountIdException;
 import com.github.kiraruto.sistemaBancario.exceptions.InvalidAmountException;
 import com.github.kiraruto.sistemaBancario.exceptions.InvalidCpfException;
 import com.github.kiraruto.sistemaBancario.model.AlertAML;
+import com.github.kiraruto.sistemaBancario.model.Transaction;
+import com.github.kiraruto.sistemaBancario.model.enums.EnumOrigin;
+import com.github.kiraruto.sistemaBancario.model.enums.EnumStatus;
 import com.github.kiraruto.sistemaBancario.model.enums.EnumStatusAlert;
+import com.github.kiraruto.sistemaBancario.model.enums.EnumTransactionType;
 import com.github.kiraruto.sistemaBancario.repository.AlertAMLRepository;
+import com.github.kiraruto.sistemaBancario.repository.TransactionRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -28,6 +33,9 @@ class AuditServiceTest {
 
     @Mock
     private AlertAMLRepository alertAMLRepository;
+
+    @Mock
+    private TransactionRepository transactionRepository;
 
     @Mock
     private KafkaTemplate<String, AlertAML> kafkaTemplate;
@@ -81,6 +89,30 @@ class AuditServiceTest {
                 alert.getDate() != null &&
                         !alert.getDate().isBefore(beforeTest) &&
                         !alert.getDate().isAfter(LocalDateTime.now())
+        ));
+    }
+
+    @Test
+    void registerFraudAlert_ShouldPersistTransactionAndAlert() {
+        UUID accountId = UUID.randomUUID();
+        BigDecimal amount = new BigDecimal("15000.00");
+        String cpf = "52998224725";
+
+        when(transactionRepository.save(any(Transaction.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        auditService.registerFraudAlert(accountId, amount, EnumOrigin.TED, cpf, "Depósito suspeito");
+
+        verify(transactionRepository).save(argThat(transaction ->
+                transaction.getStatus() == EnumStatus.PENDENTE
+                        && transaction.getTransactionType() == EnumTransactionType.DEPOSITO
+                        && accountId.equals(transaction.getAccountSends())
+                        && accountId.equals(transaction.getAccountReceive())
+        ));
+        verify(alertAMLRepository).save(argThat(alert ->
+                accountId.toString().equals(alert.getAccountId())
+                        && alert.getAmount().compareTo(amount) == 0
+                        && alert.getStatus() == EnumStatusAlert.EM_ANALISE
         ));
     }
 
