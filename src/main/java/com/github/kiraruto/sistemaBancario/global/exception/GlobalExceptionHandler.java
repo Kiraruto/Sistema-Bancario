@@ -7,10 +7,14 @@ import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
@@ -21,8 +25,6 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 
-import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.access.AccessDeniedException;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
@@ -31,6 +33,9 @@ import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+    private static final String INTERNAL_ERROR_MESSAGE = "Erro interno do servidor.";
 
     @ExceptionHandler(ExpiredJwtException.class)
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
@@ -61,27 +66,29 @@ public class GlobalExceptionHandler {
         return ErroResponse.unprocessable(e.getMessage());
     }
 
+    /**
+     * Erros de leitura do corpo e de conversão de parâmetros não devem expor
+     * detalhes do Jackson/Hibernate. A mensagem devolvida é genérica.
+     */
     @ExceptionHandler({
-            NullPointerException.class,
-            StackOverflowError.class,
-            Exception.class,
-            IllegalStateException.class
+            HttpMessageNotReadableException.class,
+            MethodArgumentTypeMismatchException.class
     })
-    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-    public ErroResponse handleException(Throwable e) {
-        return ErroResponse.internalServerError(e.getMessage());
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErroResponse handleMalformedRequest(RuntimeException e) {
+        log.debug("Requisição malformada: {}", e.getMessage());
+        return ErroResponse.badRequest("Requisição inválida.");
     }
 
     @ExceptionHandler({
             IllegalArgumentException.class,
+            IllegalStateException.class,
             AccountNotFoundException.class,
             DocLimitExceededException.class,
             ScheduleDocClosedException.class,
-            HttpMessageNotReadableException.class,
             InsufficientBalanceException.class,
             BankingHoursException.class,
             FraudDetectedException.class,
-            MethodArgumentTypeMismatchException.class,
             ConstraintViolationException.class,
             InvalidAccountIdException.class,
             InvalidCpfException.class,
@@ -94,18 +101,24 @@ public class GlobalExceptionHandler {
         return ErroResponse.badRequest(e.getMessage());
     }
 
-    @ExceptionHandler({
-            RegisterDuplicateException.class,
-            DataIntegrityViolationException.class
-    })
+    @ExceptionHandler(RegisterDuplicateException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
     public ErroResponse handleRegisterDuplicateException(RuntimeException e) {
         return ErroResponse.conflict(e.getMessage());
     }
 
-    @ExceptionHandler({
-            AuthenticationException.class
-    })
+    /**
+     * Violação de integridade costuma carregar SQL e nomes de constraints.
+     * O cliente recebe apenas uma mensagem genérica.
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ErroResponse handleDataIntegrityViolationException(DataIntegrityViolationException e) {
+        log.warn("Violação de integridade ao processar a requisição", e);
+        return ErroResponse.conflict("Conflito ao processar a requisição.");
+    }
+
+    @ExceptionHandler(AuthenticationException.class)
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public ErroResponse handleAuthenticationException(RuntimeException e) {
         return ErroResponse.unauthorized(e.getMessage());
@@ -136,9 +149,14 @@ public class GlobalExceptionHandler {
         return ErroResponse.notFound(e.getMessage());
     }
 
+    /**
+     * Último recurso: nunca devolve a mensagem interna (pode conter SQL, paths
+     * ou detalhes de implementação). O detalhe fica apenas no log.
+     */
     @ExceptionHandler(Throwable.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ErroResponse handleUnexpected(Throwable e) {
-        return ErroResponse.internalServerError(e.getMessage());
+        log.error("Erro inesperado ao processar a requisição", e);
+        return ErroResponse.internalServerError(INTERNAL_ERROR_MESSAGE);
     }
 }
