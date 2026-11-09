@@ -25,6 +25,7 @@ import java.util.UUID;
 @Entity
 public class Transaction {
     @Column(name = "origem")
+    @Enumerated(EnumType.STRING)
     public EnumOrigin origin;
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)

@@ -10,11 +10,11 @@ import com.github.kiraruto.sistemaBancario.model.enums.EnumTypeDocument;
 import com.github.kiraruto.sistemaBancario.model.enums.EnumUserRole;
 import com.github.kiraruto.sistemaBancario.repository.SavingsAccountRepository;
 import com.github.kiraruto.sistemaBancario.repository.UserRepository;
+import com.github.kiraruto.sistemaBancario.support.AbstractIntegrationTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
@@ -30,10 +30,9 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
-class SavingsAccountControllerTest {
+class SavingsAccountControllerTest extends AbstractIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
