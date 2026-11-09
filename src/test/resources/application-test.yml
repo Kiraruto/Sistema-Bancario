@@ -13,6 +13,9 @@ spring:
       hibernate:
         format_sql: false
 
+  flyway:
+    enabled: false
+
   sql:
     init:
       mode: never

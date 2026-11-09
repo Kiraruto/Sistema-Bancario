@@ -1,3 +1,11 @@
+-- ============================================================
+-- V7 - Schema e tabelas internas do Spring Batch
+-- O Spring Batch está configurado com table-prefix
+-- "batch.BATCH_" e initialize-schema: never, pois o schema
+-- agora é responsabilidade do Flyway.
+-- ============================================================
+CREATE SCHEMA IF NOT EXISTS batch;
+
 CREATE TABLE batch.BATCH_JOB_INSTANCE (
     JOB_INSTANCE_ID BIGINT PRIMARY KEY,
     VERSION BIGINT,
