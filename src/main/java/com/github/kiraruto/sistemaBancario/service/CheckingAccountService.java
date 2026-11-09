@@ -44,6 +44,7 @@ public class CheckingAccountService {
     private final WithdrawalValidatorService withdrawalValidatorService;
     private final DepositValidatorService depositValidatorService;
     private final CheckingAccountMapper checkingAccountMapper;
+    private final AccountAccessService accountAccessService;
     private final Map<UUID, ReentrantLock> locks = new ConcurrentHashMap<>();
 
     private ReentrantLock getLock(UUID uuid) {
@@ -74,11 +75,15 @@ public class CheckingAccountService {
     }
 
     public CheckingAccount getById(UUID id) {
+        accountAccessService.checkCheckingAccountAccess(id);
+
         return checkingAccountRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("O id da conta não foi encontrado"));
     }
 
     public List<TransactionDTO> getTransactions(UUID uuid) {
+        accountAccessService.checkCheckingAccountAccess(uuid);
+
         if (!checkingAccountRepository.existsById(uuid)) {
             throw new IllegalArgumentException("A conta com este id não está ativa");
         }
@@ -91,6 +96,8 @@ public class CheckingAccountService {
     }
 
     public BalanceDTO getBalance(UUID uuid) {
+        accountAccessService.checkCheckingAccountAccess(uuid);
+
         BalanceDTO fullNameAndBalanceById = checkingAccountRepository.findFullNameAndBalanceById(uuid);
 
         if (!fullNameAndBalanceById.isActive()) {
@@ -102,6 +109,8 @@ public class CheckingAccountService {
 
     @Transactional
     public void deposit(UUID uuid, @Valid WithdrawRequestDTO withdrawRequestDTO) {
+        accountAccessService.checkCheckingAccountAccess(uuid);
+
         ReentrantLock lock = getLock(uuid);
         lock.lock();
         try {
@@ -135,6 +144,8 @@ public class CheckingAccountService {
 
         UUID senderId = depositRequestDTO.accountSends();
         UUID receiverId = depositRequestDTO.accountReceive();
+
+        accountAccessService.checkCheckingAccountAccess(senderId);
 
         List<UUID> ordered = Stream.of(senderId, receiverId)
                 .sorted()
@@ -200,6 +211,8 @@ public class CheckingAccountService {
 
     @Transactional
     public void withdrawal(UUID uuid, @Valid WithdrawalRequestDTO withdrawalRequestDTO) {
+        accountAccessService.checkCheckingAccountAccess(uuid);
+
         ReentrantLock lock = getLock(uuid);
         lock.lock();
         try {

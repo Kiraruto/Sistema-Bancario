@@ -73,6 +73,9 @@ class SavingsWithdrawalTimezoneBugTest {
     @Mock
     private SavingsAccountMapper savingsAccountMapper;
 
+    @Mock
+    private AccountAccessService accountAccessService;
+
     @InjectMocks
     private SavingsAccountService savingsAccountService;
 

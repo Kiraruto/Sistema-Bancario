@@ -56,6 +56,9 @@ class SavingsAccountServiceTest {
     @Mock
     private SavingsAccountMapper savingsAccountMapper;
 
+    @Mock
+    private AccountAccessService accountAccessService;
+
     private final UUID accountId = UUID.randomUUID();
     private SavingsAccount savingsAccount;
     private User user;

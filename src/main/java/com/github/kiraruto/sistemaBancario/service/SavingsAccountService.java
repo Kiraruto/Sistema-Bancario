@@ -46,6 +46,7 @@ public class SavingsAccountService {
     private final AuditService auditService;
     private final AlertAMLRepository alertAMLRepository;
     private final SavingsAccountMapper savingsAccountMapper;
+    private final AccountAccessService accountAccessService;
     private final ConcurrentHashMap<UUID, ReentrantLock> locks = new ConcurrentHashMap<>();
 
     private ReentrantLock getLock(UUID id) {
@@ -57,6 +58,8 @@ public class SavingsAccountService {
     }
 
     public SavingsAccount getById(UUID id) {
+        accountAccessService.checkSavingsAccountAccess(id);
+
         return savingsAccountRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("O Id não existe!"));
     }
@@ -83,6 +86,8 @@ public class SavingsAccountService {
     public void transferSavingsAccount(DepositRequestDTO depositRequestDTO) {
         UUID senderId = depositRequestDTO.accountSends();
         UUID receiverId = depositRequestDTO.accountReceive();
+
+        accountAccessService.checkSavingsAccountAccess(senderId);
 
         ReentrantLock lock1 = getLock(senderId);
         ReentrantLock lock2 = getLock(receiverId);
@@ -132,6 +137,8 @@ public class SavingsAccountService {
     }
 
     public BalanceDTO getBalance(UUID uuid) {
+        accountAccessService.checkSavingsAccountAccess(uuid);
+
         BalanceDTO fullNameAndBalanceById = savingsAccountRepository.findFullNameAndBalanceById(uuid);
 
         if (!fullNameAndBalanceById.isActive()) {
@@ -156,6 +163,8 @@ public class SavingsAccountService {
     }
 
     public List<TransactionDTO> getTransactions(UUID uuid) {
+        accountAccessService.checkSavingsAccountAccess(uuid);
+
         if (!savingsAccountRepository.existsById(uuid)) {
             throw new IllegalArgumentException("A conta com este id não está ativa");
         }
@@ -168,6 +177,8 @@ public class SavingsAccountService {
     }
 
     public void deposit(UUID uuid, WithdrawRequestDTO withdrawRequestDTO) {
+        accountAccessService.checkSavingsAccountAccess(uuid);
+
         ReentrantLock lock = getLock(uuid);
         lock.lock();
         try {
@@ -241,6 +252,8 @@ public class SavingsAccountService {
     }
 
     public void withdrawal(UUID uuid, @Valid WithdrawalRequestDTO withdrawalRequestDTO) {
+        accountAccessService.checkSavingsAccountAccess(uuid);
+
         ReentrantLock lock = getLock(uuid);
         lock.lock();
         try {

@@ -20,6 +20,7 @@ public class TransferService {
 
     private final CheckingAccountRepository checkingAccountRepository;
     private final SavingsAccountRepository savingAccountRepository;
+    private final AccountAccessService accountAccessService;
     private final ConcurrentHashMap<UUID, ReentrantLock> locks = new ConcurrentHashMap<>();
 
     private ReentrantLock getLock(UUID id) {
@@ -29,6 +30,11 @@ public class TransferService {
     public void transfer(TransferRequestDTO dto) {
         if (dto.amount() == null || dto.amount().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("O valor da transferência deve ser positivo");
+        }
+
+        switch (dto.fromType()) {
+            case CHECKING -> accountAccessService.checkCheckingAccountAccess(dto.fromId());
+            case SAVING -> accountAccessService.checkSavingsAccountAccess(dto.fromId());
         }
 
         UUID firstLockId = dto.fromId().compareTo(dto.toId()) < 0 ? dto.fromId() : dto.toId();

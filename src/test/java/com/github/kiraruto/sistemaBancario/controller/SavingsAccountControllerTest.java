@@ -98,7 +98,7 @@ class SavingsAccountControllerTest {
     }
 
     @Test
-    @WithMockUser(authorities = "CLIENTE")
+    @WithMockUser(username = "testuser", authorities = "CLIENTE")
     void getById_WithValidId_ShouldReturnAccount() throws Exception {
         mockMvc.perform(get("/savings-accounts/" + testAccount.getId()))
                 .andExpect(status().isOk())
@@ -106,7 +106,7 @@ class SavingsAccountControllerTest {
     }
 
     @Test
-    @WithMockUser(authorities = "CLIENTE")
+    @WithMockUser(username = "testuser", authorities = "CLIENTE")
     void getById_WithInvalidId_ShouldReturnNotFound() throws Exception {
         UUID invalidId = UUID.randomUUID();
         mockMvc.perform(get("/savings-accounts/" + invalidId))
@@ -114,18 +114,25 @@ class SavingsAccountControllerTest {
     }
 
     @Test
-    @WithMockUser(authorities = "CLIENTE")
+    @WithMockUser(username = "testuser", authorities = "CLIENTE")
     void getTransactions_ShouldReturnTransactions() throws Exception {
         mockMvc.perform(get("/savings-accounts/" + testAccount.getId() + "/transactions"))
                 .andExpect(status().isOk());
     }
 
     @Test
-    @WithMockUser(authorities = "CLIENTE")
+    @WithMockUser(username = "testuser", authorities = "CLIENTE")
     void getBalance_ShouldReturnBalance() throws Exception {
         mockMvc.perform(get("/savings-accounts/" + testAccount.getId() + "/balance"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.balance").exists());
+    }
+
+    @Test
+    @WithMockUser(username = "outroUsuario", authorities = "CLIENTE")
+    void getById_FromAnotherClient_ShouldReturnForbidden() throws Exception {
+        mockMvc.perform(get("/savings-accounts/" + testAccount.getId()))
+                .andExpect(status().isForbidden());
     }
 
     @Test

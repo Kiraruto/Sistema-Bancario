@@ -79,6 +79,9 @@ class CheckingAccountTransferTransactionBugTest {
     @Mock
     private CheckingAccountMapper checkingAccountMapper;
 
+    @Mock
+    private AccountAccessService accountAccessService;
+
     private CheckingAccountService checkingAccountService;
 
     @BeforeEach
@@ -98,7 +101,8 @@ class CheckingAccountTransferTransactionBugTest {
                 userRepository,
                 withdrawalValidatorService,
                 depositValidatorService,
-                checkingAccountMapper
+                checkingAccountMapper,
+                accountAccessService
         );
     }
 

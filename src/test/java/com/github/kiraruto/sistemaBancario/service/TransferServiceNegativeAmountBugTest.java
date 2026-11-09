@@ -38,11 +38,18 @@ class TransferServiceNegativeAmountBugTest {
     @Mock
     private SavingsAccountRepository savingAccountRepository;
 
+    @Mock
+    private AccountAccessService accountAccessService;
+
     private TransferService transferService;
 
     @BeforeEach
     void setUp() {
-        transferService = new TransferService(checkingAccountRepository, savingAccountRepository);
+        transferService = new TransferService(
+                checkingAccountRepository,
+                savingAccountRepository,
+                accountAccessService
+        );
     }
 
     @Test

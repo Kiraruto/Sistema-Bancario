@@ -65,6 +65,9 @@ class CheckingAccountServiceTest {
     @Mock
     private WithdrawalValidatorService withdrawalValidatorService;
 
+    @Mock
+    private AccountAccessService accountAccessService;
+
     private final UUID accountId = UUID.fromString("9044acfb-37f0-47ee-a850-a94586c4180a");
     private CheckingAccount checkingAccount;
     private User user;
