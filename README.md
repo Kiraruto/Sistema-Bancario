@@ -5,7 +5,8 @@
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.4.3-brightgreen)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15%2B-blue)
 ![Kafka](https://img.shields.io/badge/Kafka-alertas%20AML-black)
-![Testes](https://img.shields.io/badge/testes-112%20passando-success)
+![Testes](https://img.shields.io/badge/testes-113%20passando-success)
+![CI](https://github.com/Kiraruto/Sistema-Bancario/actions/workflows/ci.yml/badge.svg)
 ![Licença](https://img.shields.io/badge/licen%C3%A7a-educacional-lightgrey)
 
 API REST para um sistema bancário simplificado, com contas corrente e poupança,
@@ -67,7 +68,7 @@ flowchart LR
 
 ### Fluxo resumido
 
-1. A aplicação cria um usuário `admin` padrão na primeira inicialização.
+1. Se `ADMIN_PASSWORD` estiver definida (mínimo 12 caracteres), a aplicação cria um usuário `ADMIN` na primeira inicialização. Sem ela, nenhum admin é criado. `ADMIN_USERNAME` e `ADMIN_EMAIL` têm valores padrão.
 2. O cliente faz login em `POST /auth/signin` e recebe `token` e `refreshToken`.
 3. O token é enviado no cabeçalho `Authorization: Bearer <token>`.
 4. As rotas são liberadas conforme o perfil do usuário.
@@ -82,7 +83,7 @@ flowchart LR
 - Senha criptografada com BCrypt.
 - Atualização de dados, troca de perfil, ativação e desativação.
 - Perfis `ADMIN`, `GERENTE` e `CLIENTE`.
-- Criação automática do usuário `admin` na primeira execução.
+- Criação do usuário `ADMIN` via variáveis de ambiente (`ADMIN_USERNAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`).
 
 ### Contas
 - Conta poupança (`SavingsAccount`) e conta corrente (`CheckingAccount`).
@@ -133,8 +134,10 @@ flowchart LR
 | Processamento em lote | Spring Batch + Scheduling |
 | Documentação da API | Springdoc OpenAPI 2.8.5 (Swagger UI) |
 | Mapeamento | MapStruct 1.6.3 + Lombok |
-| Testes | JUnit 5, Mockito, Spring Security Test e H2 |
+| Migrations | Flyway 10.20.1 |
+| Testes | JUnit 5, Mockito, Spring Security Test e Testcontainers (PostgreSQL 16.3) |
 | Build | Maven Wrapper (`./mvnw`) |
+| CI | GitHub Actions |
 | Infra local | Docker Compose (Kafka) |
 
 ---
@@ -145,7 +148,8 @@ flowchart LR
 - **Maven 3.8+** (ou use o wrapper `./mvnw`)
 - **PostgreSQL** em execução
 - **Kafka** (necessário para publicar alertas AML)
-- **Docker e Docker Compose** (opcional, para subir o Kafka)
+- **Docker** (necessário para os testes de integração com Testcontainers; opcional para subir o Kafka)
+- **Docker Compose** (opcional, para subir o Kafka)
 
 Verifique as versões:
 
@@ -177,6 +181,9 @@ export DB_URL="jdbc:postgresql://localhost:5555/Banking_systemDB"
 export DB_USERNAME="postgres"
 export DB_PASSWORD="sua-senha"
 export JWT_SECRET="$(openssl rand -base64 32)"
+export ADMIN_USERNAME="admin"
+export ADMIN_EMAIL="admin@example.com"
+export ADMIN_PASSWORD="uma-senha-forte"
 ```
 
 O modelo usado pelo projeto:
@@ -188,9 +195,17 @@ spring:
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:SUA_SENHA_AQUI}
 
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+
   batch:
     jdbc:
-      schema: classpath:/table/V7__create_batch_tables.sql
+      initialize-schema: never
       table-prefix: batch.BATCH_
 
   kafka:
@@ -203,57 +218,61 @@ jwt:
 > 🔐 Gere o segredo JWT com `openssl rand -base64 32`. Nunca faça commit do
 > `application.yml` real, de senhas ou de chaves.
 
-### 3. Usuário administrador padrão
+### 3. Usuário administrador
 
-Na primeira inicialização, se não existir nenhum usuário `ADMIN`, a aplicação cria:
+O admin **não é mais criado com senha fixa no código**. A aplicação cria um
+usuário `ADMIN` somente quando `ADMIN_PASSWORD` está definida (mínimo de 12
+caracteres). Sem ela, nenhum admin é criado.
 
-| Campo | Valor |
-|-------|-------|
-| Username | `admin` |
-| Senha | *definida no código-fonte — troque imediatamente* |
-| E-mail | `admin@gmail.com` |
+| Campo | Origem |
+|-------|--------|
+| Username | `ADMIN_USERNAME` (padrão: `admin`) |
+| E-mail | `ADMIN_EMAIL` (padrão: `admin@exemplo.com`) |
+| Senha | `ADMIN_PASSWORD` (obrigatória, armazenada com BCrypt) |
 | Perfil | `ADMIN` |
 
-> ⚠️ **A senha padrão não é documentada aqui por segurança. Consulte
-> `Application.java`, troque-a antes do primeiro uso e nunca use a padrão em
-> produção.**
+A senha nunca aparece no código-fonte nem no Git.
 
 ---
 
 ## 🗄 Banco de dados
 
-O projeto usa `ddl-auto: none`; as tabelas são criadas manualmente pelos scripts
-em `src/main/resources/tables/`:
+O schema é gerenciado pelo **Flyway**. As migrations ficam em
+`src/main/resources/db/migration/` e são aplicadas automaticamente na
+inicialização da aplicação.
 
-| Ordem | Script | Tabela |
-|-------|--------|--------|
-| 1 | `V1__create_SavingsAccount.sql` | `savings_account` |
-| 2 | `V2__create_CheckingAccount.sql` | `checking_account` |
-| 3 | `V3__create_users.sql` | `users` |
-| 4 | `V4__create_transaction.sql` | `transaction` |
-| 5 | `V5__create_AlertAML.sql` | `alert_aml` |
-| 6 | `V6__create__scheduled_transfer.sql` | `scheduled_transfer` |
-| 7 | `V7__create_batch_tables.sql` | Tabelas do Spring Batch no schema `batch` |
+| Versão | Migration | Conteúdo |
+|--------|-----------|----------|
+| V1 | `V1__create_users.sql` | Tabela `users` |
+| V2 | `V2__create_accounts.sql` | Tabelas `savings_account` e `checking_account` |
+| V3 | `V3__create_transaction.sql` | Tabela `transaction` |
+| V4 | `V4__create_alert_aml.sql` | Tabela `alert_aml` |
+| V5 | `V5__create_scheduled_transfer.sql` | Tabela `scheduled_transfer` |
+| V6 | `V6__add_user_account_foreign_keys.sql` | FKs inversas de `users` para as contas |
+| V7 | `V7__create_batch_tables.sql` | Schema `batch` e tabelas do Spring Batch |
 
-Exemplo com `psql`:
+Configuração usada:
 
-```bash
-createdb -h localhost -p 5555 -U postgres Banking_systemDB
-psql -h localhost -p 5555 -U postgres -d Banking_systemDB \
-  -f src/main/resources/tables/V1__create_SavingsAccount.sql \
-  -f src/main/resources/tables/V2__create_CheckingAccount.sql \
-  -f src/main/resources/tables/V3__create_users.sql \
-  -f src/main/resources/tables/V4__create_transaction.sql \
-  -f src/main/resources/tables/V5__create_AlertAML.sql \
-  -f src/main/resources/tables/V6__create__scheduled_transfer.sql \
-  -f src/main/resources/tables/V7__create_batch_tables.sql
+```yaml
+spring:
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  jpa:
+    hibernate:
+      ddl-auto: none
+  batch:
+    jdbc:
+      initialize-schema: never
 ```
 
-> ℹ️ **Observação:** o script `V3` contém uma FK para `scheduled_transfer`, que é
-> criada no `V6`. Em um banco novo, remova essa constraint de `V3` (ela é
-> redundante, pois o vínculo já existe em `V6`) ou crie-a depois com `ALTER TABLE`.
->
-> ℹ️ O projeto **não usa Flyway**; os scripts não são executados automaticamente.
+Para um banco novo, crie apenas o database vazio e inicie a aplicação; o Flyway
+aplica as migrations na ordem.
+
+> ⚠️ Se o banco já possui tabelas criadas manualmente e **não** tem a tabela de
+> histórico do Flyway (`flyway_schema_history`), recrie o database vazio antes de
+> subir a aplicação. Alternativamente, configure `baseline-on-migrate` com
+> cuidado. Não edite migrations já aplicadas: crie uma nova versão.
 
 ---
 
@@ -816,7 +835,9 @@ Exemplo de resposta sem autenticação:
 
 ## 🧪 Testes
 
-A suíte usa o profile `test` com **H2 em memória**, sem depender do PostgreSQL.
+A suíte usa o profile `test` e sobe um **PostgreSQL 16.3 real via
+Testcontainers**. O Flyway aplica as migrations no container e o Hibernate valida
+o schema com `ddl-auto: validate`. É necessário ter **Docker rodando**.
 
 ```bash
 ./mvnw clean test
@@ -825,8 +846,13 @@ A suíte usa o profile `test` com **H2 em memória**, sem depender do PostgreSQL
 Resultado atual:
 
 ```text
-Tests run: 112, Failures: 0, Errors: 0, Skipped: 0
+Tests run: 113, Failures: 0, Errors: 0, Skipped: 0
+BUILD SUCCESS
 ```
+
+Os testes de integração herdam de `AbstractIntegrationTest`, que usa
+`@Testcontainers` + `@ServiceConnection` para configurar o banco
+automaticamente. Não é preciso subir PostgreSQL nem configurar senha para testar.
 
 A estrutura dos testes espelha os pacotes do código principal:
 
@@ -838,8 +864,15 @@ src/test/java/com/github/kiraruto/sistemaBancario/
 ├── global/exception/    # Tratamento global de erros
 ├── model/               # Entidades e regras de modelo
 ├── service/             # Serviços e regressões
+├── support/             # AbstractIntegrationTest (Testcontainers)
 └── utils/               # Validadores
 ```
+
+### CI
+
+O workflow `.github/workflows/ci.yml` roda `./mvnw -B -ntp verify` em pushes
+para `main`/`1.5.0` e em pull requests para `main`. O runner `ubuntu-latest` já
+possui Docker, então o Testcontainers funciona sem serviço adicional.
 
 ---
 
@@ -847,6 +880,8 @@ src/test/java/com/github/kiraruto/sistemaBancario/
 
 ```text
 Sistema-Bancario/
+├── .github/
+│   └── workflows/ci.yml             # CI (build + testes)
 ├── .gitignore
 ├── .mvn/
 ├── mvnw
@@ -857,7 +892,7 @@ Sistema-Bancario/
 └── src/
     ├── main/
     │   ├── java/com/github/kiraruto/sistemaBancario/
-    │   │   ├── Application.java      # Bootstrap + admin padrão
+    │   │   ├── Application.java      # Bootstrap + admin via env
     │   │   ├── batch/config/         # Job de juros (Spring Batch)
     │   │   ├── config/               # Segurança, JWT e agendadores
     │   │   ├── controller/           # Endpoints REST
@@ -873,10 +908,10 @@ Sistema-Bancario/
     │       ├── application.yml       # Configuração local (ignorada)
     │       ├── application.yml.example
     │       ├── docker-compose.yml    # Kafka local
-    │       └── tables/               # Scripts SQL
+    │       └── db/migration/         # Migrations Flyway
     └── test/
         ├── java/                     # Testes espelhando o main
-        └── resources/                # application-test.yml (H2)
+        └── resources/                # application-test.yml (Testcontainers)
 ```
 
 ---
@@ -885,16 +920,16 @@ Sistema-Bancario/
 
 Este é um projeto educacional. Antes de usar em produção, revise os pontos abaixo:
 
-1. **Usuário admin padrão** é criado automaticamente. Troque a senha imediatamente.
-2. **Scripts SQL manuais**: o projeto não usa Flyway/Liquibase. A ordem e a FK circular entre `users` e `scheduled_transfer` exigem atenção (ver [Banco de dados](#-banco-de-dados)).
+1. **Usuário admin**: só é criado se `ADMIN_PASSWORD` estiver definida, com no mínimo 12 caracteres. `ADMIN_USERNAME` e `ADMIN_EMAIL` têm valores padrão. Nunca versione essas variáveis.
+2. **Migrations**: o schema é gerenciado pelo Flyway. Não edite migrations já aplicadas; crie uma nova versão.
 3. **Locks em memória**: `ReentrantLock` e `ConcurrentHashMap` funcionam em uma única instância. Em cluster, use locks distribuídos (ex.: Redis ou banco).
-4. **`POST /transfer` não valida o dono da conta de origem**: qualquer usuário com perfil `GERENTE` ou `CLIENTE` pode informar qualquer `fromId`. Adicione uma verificação de propriedade.
+4. **Ownership de contas**: `CLIENTE` só acessa as próprias contas; `ADMIN` e `GERENTE` acessam qualquer conta. Revise as regras ao adicionar novos tipos de conta.
 5. **Saques acima de R$ 20.000**: a transação é marcada como `PENDENTE`, mas o saldo é debitado no fluxo atual. Revise se o débito deve aguardar aprovação.
 6. **Kafka**: os alertas são persistidos no banco, mas a publicação no tópico `alertas-aml` depende do Kafka estar disponível.
-7. **Schema do Batch**: o `application.yml` aponta para `classpath:/table/V7__create_batch_tables.sql`, enquanto os scripts ficam em `tables/`. Ajuste o caminho se habilitar `spring.batch.jdbc.initialize-schema=always`.
+7. **Schema do Batch**: as tabelas são criadas pela migration `V7`; mantenha `spring.batch.jdbc.initialize-schema=never` para não conflitar com o Flyway.
 8. **Taxa de juros**: o modelo usa 0,6743% ao mês; o job divide por 30 para obter a taxa diária. O valor de fallback é 0,5% quando `interestRate` é nulo.
 9. **Segredos**: nunca versionar `application.yml`, senhas ou chaves JWT. Use variáveis de ambiente e rotacione credenciais expostas.
-10. **Cobertura de testes**: a suíte cobre serviços, controllers, validadores e regressões, mas não substitui testes de integração com PostgreSQL e Kafka reais.
+10. **Cobertura de testes**: a suíte cobre serviços, controllers, validadores e regressões, e os testes de integração usam PostgreSQL real via Testcontainers. Kafka ainda não é exercitado de ponta a ponta.
 
 ---
 
