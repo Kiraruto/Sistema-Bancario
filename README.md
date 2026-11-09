@@ -1,11 +1,11 @@
 # 🏦 Sistema Bancário
 
-![Versão](https://img.shields.io/badge/vers%C3%A3o-1.5.0-blue)
+![Versão](https://img.shields.io/badge/vers%C3%A3o-1.6.5-blue)
 ![Java](https://img.shields.io/badge/Java-17-orange)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.4.3-brightgreen)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15%2B-blue)
 ![Kafka](https://img.shields.io/badge/Kafka-alertas%20AML-black)
-![Testes](https://img.shields.io/badge/testes-113%20passando-success)
+![Testes](https://img.shields.io/badge/testes-162%20passando-success)
 ![CI](https://github.com/Kiraruto/Sistema-Bancario/actions/workflows/ci.yml/badge.svg)
 ![Licença](https://img.shields.io/badge/licen%C3%A7a-educacional-lightgrey)
 
@@ -250,6 +250,7 @@ inicialização da aplicação.
 | V5 | `V5__create_scheduled_transfer.sql` | Tabela `scheduled_transfer` |
 | V6 | `V6__add_user_account_foreign_keys.sql` | FKs inversas de `users` para as contas |
 | V7 | `V7__create_batch_tables.sql` | Schema `batch` e tabelas do Spring Batch |
+| V8 | `V8__add_account_version.sql` | Coluna `version` para concorrência otimista nas contas |
 
 Configuração usada:
 
@@ -283,7 +284,7 @@ aplica as migrations na ordem.
 ```bash
 git clone https://github.com/Kiraruto/Sistema-Bancario.git
 cd Sistema-Bancario
-git checkout 1.5.0
+git checkout 1.6.5
 ```
 
 ### 2. Suba o Kafka (opcional, mas recomendado)
@@ -533,7 +534,9 @@ As permissões efetivas de cada rota estão na seção [Endpoints](#-endpoints).
 
 | Regra | Comportamento |
 |-------|---------------|
-| Contas | Somente entre contas poupança. |
+| Contas | Somente entre contas poupança **existentes e ativas**. |
+| Origem x destino | Precisam ser contas diferentes. |
+| Valor | Precisa ser positivo. |
 | Data | Precisa ser futura (`@Future`). |
 | Status inicial | `PENDENTE`. |
 | Execução | Job a cada 5 minutos processa agendamentos vencidos. |
@@ -555,6 +558,26 @@ As permissões efetivas de cada rota estão na seção [Endpoints](#-endpoints).
 - Taxa mensal padrão da conta: **0,6743%**.
 - A taxa diária é a taxa mensal dividida por 30.
 - O saldo é atualizado com os juros do dia.
+
+### Decisões de endurecimento (1.6.x)
+
+- **Conclusão de transação idempotente**: uma transação `PENDENTE` só é creditada
+  uma vez, mesmo com chamadas concorrentes.
+- **Transferências atômicas**: débito, crédito e registro da transação acontecem
+  na mesma transação, com bloqueio pessimista e ordem determinística de locks.
+- **Alertas AML/fraude sobrevivem ao rollback**: são gravados em transação
+  separada (`REQUIRES_NEW`), para não se perderem quando a operação falha.
+- **Agendamentos atômicos**: execução em transação própria; se o crédito falhar,
+  o débito é desfeito e o agendamento fica `FALHOU`.
+- **Concorrência otimista nas contas**: `@Version` (migration `V8`) impede que
+  duas atualizações sobrescrevam o saldo uma da outra.
+- **JWT**: token malformado/assinatura inválida não derruba a requisição com 500
+  e usuário desativado não autentica.
+- **Validação de entrada**: DTOs de movimentação e agendamento exigem campos e
+  valores válidos; a criação de agendamento valida contas existentes/ativas,
+  origem diferente do destino, valor positivo e data futura.
+- **Erros**: mensagens internas não são expostas; corpo/parâmetro malformado
+  retorna `400` e conflito de integridade retorna `409` genérico.
 
 ---
 
@@ -614,15 +637,15 @@ Os mesmos campos de `SavingsAccountDTO`, mais:
 
 ### `WithdrawRequestDTO`
 
-| Campo | Tipo | Descrição |
-|-------|------|-----------|
-| `idAccount` | UUID | ID da conta |
-| `amount` | BigDecimal | Valor |
-| `enumOrigin` | `EnumOrigin` | Origem da operação |
+| Campo | Tipo | Regra |
+|-------|------|-------|
+| `idAccount` | UUID | Obrigatório |
+| `amount` | BigDecimal | Obrigatório e positivo |
+| `enumOrigin` | `EnumOrigin` | Obrigatório |
 
 ### `WithdrawalRequestDTO`
 
-Mesmos campos de `WithdrawRequestDTO`. Usado nos saques.
+Mesmos campos e regras de `WithdrawRequestDTO`. Usado nos saques.
 
 ### `DepositRequestDTO`
 
@@ -654,8 +677,8 @@ Mesmos campos de `WithdrawRequestDTO`. Usado nos saques.
 |-------|------|-------|
 | `accountSends` | UUID | Obrigatório |
 | `accountReceive` | UUID | Obrigatório |
-| `amount` | BigDecimal | Positivo |
-| `scheduledDate` | LocalDateTime | Futuro |
+| `amount` | BigDecimal | Obrigatório e positivo |
+| `scheduledDate` | LocalDateTime | Obrigatório e futuro |
 | `userId` | String | Obrigatório |
 
 ### Outros
@@ -813,15 +836,19 @@ Os erros de negócio e validação usam o formato `ErroResponse`:
 
 | Status | Quando acontece |
 |--------|-----------------|
-| `400` | Regra de negócio, valor inválido, conta inexistente, limite excedido etc. |
-| `401` | Token ausente/inválido ou credenciais incorretas. |
+| `400` | Regra de negócio, valor inválido, corpo/parâmetro malformado, limite excedido etc. |
+| `401` | Token ausente/inválido, token expirado ou credenciais incorretas. |
 | `403` | Perfil sem permissão para a rota. |
-| `404` | Recurso não encontrado. |
+| `404` | Recurso ou conta não encontrada. |
 | `405` | Método HTTP não suportado. |
-| `409` | Duplicidade (usuário, e-mail, CPF etc.). |
+| `409` | Duplicidade (usuário, e-mail, CPF etc.) ou conflito de integridade. |
 | `415` | `Content-Type` não suportado. |
 | `422` | Falha de validação do corpo (`@Valid`). |
-| `500` | Erro interno não tratado. |
+| `500` | Erro interno não tratado. A resposta é genérica; o detalhe fica no log. |
+
+> Mensagens internas (SQL, nomes de constraints, stack traces) não são devolvidas
+> ao cliente. Um JWT malformado ou de usuário desativado não autentica e resulta
+> em `401` nas rotas protegidas.
 
 Exemplo de resposta sem autenticação:
 
@@ -846,7 +873,7 @@ o schema com `ddl-auto: validate`. É necessário ter **Docker rodando**.
 Resultado atual:
 
 ```text
-Tests run: 113, Failures: 0, Errors: 0, Skipped: 0
+Tests run: 162, Failures: 0, Errors: 0, Skipped: 0
 BUILD SUCCESS
 ```
 
@@ -930,6 +957,11 @@ Este é um projeto educacional. Antes de usar em produção, revise os pontos ab
 8. **Taxa de juros**: o modelo usa 0,6743% ao mês; o job divide por 30 para obter a taxa diária. O valor de fallback é 0,5% quando `interestRate` é nulo.
 9. **Segredos**: nunca versionar `application.yml`, senhas ou chaves JWT. Use variáveis de ambiente e rotacione credenciais expostas.
 10. **Cobertura de testes**: a suíte cobre serviços, controllers, validadores e regressões, e os testes de integração usam PostgreSQL real via Testcontainers. Kafka ainda não é exercitado de ponta a ponta.
+11. **Refresh token**: ainda não há rotação, revogação nem armazenamento de tokens revogados. Um refresh token válido continua utilizável até expirar.
+12. **Entidades com `@Data`**: Lombok gera `equals`/`hashCode` com todos os campos, inclusive `@Version` e associações. Não use essas entidades como chave de coleções; o ideal é implementar `equals`/`hashCode` por `id`.
+13. **Paginação**: listagens como contas, transações e agendamentos retornam todos os registros. Em bases grandes, adicione paginação.
+14. **Saída no console**: ainda há `System.out.println` em trechos antigos; prefira o logger para facilitar a observabilidade.
+15. **Toolchain de testes**: Surefire e compiler plugins estão em versões antigas. Há um teste JUnit 4 (`JobExecutionTest`) que não é executado sem `junit-vintage-engine`; migre-o para JUnit 5 ou adicione o engine.
 
 ---
 
