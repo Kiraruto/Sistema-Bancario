@@ -4,9 +4,7 @@ import com.github.kiraruto.sistemaBancario.dto.WithdrawRequestDTO;
 import com.github.kiraruto.sistemaBancario.exceptions.DepositLimitExceededException;
 import com.github.kiraruto.sistemaBancario.mapper.SavingsAccountMapper;
 import com.github.kiraruto.sistemaBancario.model.SavingsAccount;
-import com.github.kiraruto.sistemaBancario.model.Transaction;
 import com.github.kiraruto.sistemaBancario.model.enums.EnumOrigin;
-import com.github.kiraruto.sistemaBancario.repository.AlertAMLRepository;
 import com.github.kiraruto.sistemaBancario.repository.SavingsAccountRepository;
 import com.github.kiraruto.sistemaBancario.repository.TransactionRepository;
 import com.github.kiraruto.sistemaBancario.repository.UserRepository;
@@ -63,9 +61,6 @@ class SavingsDepositLimitMessageBugTest {
     private AuditService auditService;
 
     @Mock
-    private AlertAMLRepository alertAMLRepository;
-
-    @Mock
     private SavingsAccountMapper savingsAccountMapper;
 
     @Mock
@@ -86,13 +81,6 @@ class SavingsDepositLimitMessageBugTest {
         when(savingsAccountRepository.findById(accountId)).thenReturn(Optional.of(account));
         when(transactionRepository.findLasts24Hours(eq(accountId), any(LocalDateTime.class)))
                 .thenReturn(List.of());
-        when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> {
-            Transaction transaction = invocation.getArgument(0);
-            if (transaction.getId() == null) {
-                transaction.setId(UUID.randomUUID());
-            }
-            return transaction;
-        });
 
         WithdrawRequestDTO request = new WithdrawRequestDTO(
                 accountId,

@@ -187,7 +187,7 @@ class SavingsAccountControllerTest extends AbstractIntegrationTest {
         WithdrawRequestDTO depositDTO = new WithdrawRequestDTO(
                 testAccount.getId(),
                 BigDecimal.valueOf(100),
-                EnumOrigin.DOC
+                EnumOrigin.DINHEIRO_FISICO
         );
 
         BigDecimal initialBalance = testAccount.getBalance();
