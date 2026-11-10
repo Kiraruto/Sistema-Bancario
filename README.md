@@ -897,9 +897,9 @@ src/test/java/com/github/kiraruto/sistemaBancario/
 
 ### CI
 
-O workflow `.github/workflows/ci.yml` roda `./mvnw -B -ntp verify` em pushes
-para `main`/`1.5.0` e em pull requests para `main`. O runner `ubuntu-latest` já
-possui Docker, então o Testcontainers funciona sem serviço adicional.
+O workflow `.github/workflows/ci.yml` roda `./mvnw -B -ntp verify` em pushes e
+pull requests para `main`, `1.5.0`, `1.6.0` e `1.6.5`. O runner `ubuntu-latest`
+já possui Docker, então o Testcontainers funciona sem serviço adicional.
 
 ---
 
