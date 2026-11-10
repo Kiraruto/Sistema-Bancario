@@ -1,14 +1,16 @@
 package com.github.kiraruto.sistemaBancario.model;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.github.kiraruto.sistemaBancario.dto.BalanceDTO;
 import com.github.kiraruto.sistemaBancario.dto.SavingsAccountDTO;
 import com.github.kiraruto.sistemaBancario.model.enums.EnumMaritalStatus;
 import com.github.kiraruto.sistemaBancario.model.enums.EnumTypeDocument;
-import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -16,49 +18,26 @@ import java.util.UUID;
 
 //poupança
 @Data
-@AllArgsConstructor
+@NoArgsConstructor
+@EqualsAndHashCode(callSuper = true)
+@ToString(callSuper = true)
 @Entity
 @Table(name = "savings_account")
 public class SavingsAccount extends Account {
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id; // Identificador único da conta
-
     @Column(name = "interest_rate")
     private BigDecimal interestRate = BigDecimal.valueOf(0.006743); // Taxa de juros aplicada
-
-    @Column(name = "balance", precision = 18, scale = 2, nullable = false)
-    private BigDecimal balance; // Saldo da conta poupança
-
-    @ManyToOne
-    @JoinColumn(name = "user_id", nullable = false)
-    @JsonIgnore
-    private User user;
-
-    public SavingsAccount() {
-
-    }
 
     public SavingsAccount(String fullName, LocalDate dateBirth, String address, EnumMaritalStatus maritalStatus,
                           String phoneNumber, String email, String cpf, EnumTypeDocument rgOrCnh,
                           String documentNumber, BigDecimal interestRate, BigDecimal balance, Boolean isActive) {
         super(fullName, dateBirth, address, maritalStatus, phoneNumber, email, cpf, rgOrCnh, documentNumber, isActive);
         this.interestRate = interestRate;
-        this.balance = balance;
+        this.setBalance(balance);
     }
 
     public SavingsAccount(SavingsAccountDTO savingsAccountDTO) {
-        this.setFullName(savingsAccountDTO.fullName());
-        this.setDateBirth(savingsAccountDTO.dateBirth());
-        this.setAddress(savingsAccountDTO.address());
-        this.setMaritalStatus(savingsAccountDTO.maritalStatus());
-        this.setPhoneNumber(savingsAccountDTO.phoneNumber());
-        this.setEmail(savingsAccountDTO.email());
-        this.setCpf(savingsAccountDTO.cpf().replaceAll("[^\\d]", ""));
-        this.setRgOrCnh(savingsAccountDTO.rgOrCnh());
-        this.setDocumentNumber(savingsAccountDTO.documentNumber());
-        this.setIsActive(true);
-        this.balance = savingsAccountDTO.balance();
+        super(savingsAccountDTO);
+        this.setBalance(savingsAccountDTO.balance());
     }
 
     public SavingsAccount(BalanceDTO balance) {
@@ -67,7 +46,7 @@ public class SavingsAccount extends Account {
     }
 
     public SavingsAccount(UUID savingsAccountId) {
-        this.id = savingsAccountId;
+        super(savingsAccountId);
     }
 
     //    aplicando juros

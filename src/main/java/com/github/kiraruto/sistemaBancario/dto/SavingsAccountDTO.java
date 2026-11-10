@@ -63,5 +63,5 @@ public record SavingsAccountDTO(
         @NotNull(message = "O id do usuario não pode ser nulo")
         @JsonAlias({"user_id", "user"}) // Alias for flexibility in JSON naming
         UUID userId
-) {
+) implements AccountHolderDTO {
 }

@@ -58,7 +58,7 @@ public record CheckingAccountDTO(@Size(max = 100, message = "O nome não pode te
                                  @NotNull(message = "O id do usuario não pode ser nulo")
                                  @JsonAlias("user_id")
                                  UUID userId
-) {
+) implements AccountHolderDTO {
 }
 
 
